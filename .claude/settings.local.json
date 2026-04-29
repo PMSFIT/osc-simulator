@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/pip index *)",
+      "Bash(.venv/bin/pip search *)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(python3 -c \"import osi3; print\\(osi3.__file__\\)\")",
+      "Bash(python3 -c \"import osi3.osi_groundtruth_pb2\")",
+      "Read(//tmp/osi-out/**)",
+      "Bash(.venv/bin/python -)"
+    ]
+  }
+}
