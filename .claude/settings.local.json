@@ -7,7 +7,15 @@
       "Bash(python3 -c \"import osi3; print\\(osi3.__file__\\)\")",
       "Bash(python3 -c \"import osi3.osi_groundtruth_pb2\")",
       "Read(//tmp/osi-out/**)",
-      "Bash(.venv/bin/python -)"
+      "Bash(.venv/bin/python -)",
+      "Bash(.venv/bin/pip list *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebSearch",
+      "WebFetch(domain:lichtblick-suite.github.io)",
+      "WebFetch(domain:pypi.org)",
+      "Bash(.venv/bin/python *)"
     ]
   }
 }

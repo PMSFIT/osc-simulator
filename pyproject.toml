@@ -8,10 +8,8 @@ version = "0.1.0"
 description = "ASAM OpenSCENARIO simulator producing ASAM OSI SensorView trace files"
 requires-python = ">=3.10"
 dependencies = [
-    # OSI is not on PyPI; install from GitHub before this package:
-    #   pip install "git+https://github.com/OpenSimulationInterface/open-simulation-interface.git@v3.7.0"
-    "open-simulation-interface>=3.7.0",
-    "protobuf>=4.21",
+    "osi-python @ git+https://github.com/OpenSimulationInterface/osi-python.git",
+    "asam-osi-utilities @ git+https://github.com/lichtblick-suite/asam-osi-utilities.git#subdirectory=python",
     "lxml>=4.9",
 ]
 
