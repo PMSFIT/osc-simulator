@@ -6,6 +6,12 @@ build-backend = "hatchling.build"
 name = "osc-simulator"
 version = "0.1.0"
 description = "ASAM OpenSCENARIO simulator producing ASAM OSI SensorView trace files"
+license = "MPL-2.0"
+keywords = [ "openscenario", "osi" ]
+authors = [
+  {email = "osi@pmsf.de"},
+  {name = "PMSF"}
+]
 requires-python = ">=3.10"
 dependencies = [
     "osi-python @ git+https://github.com/OpenSimulationInterface/osi-python.git",
