@@ -11,12 +11,11 @@ from collections.abc import Iterator
 from typing import Any
 
 import osi3.osi_groundtruth_pb2 as osi_gt
-import osi3.osi_common_pb2 as osi_common
 
 from osc_simulator.parser.openscenario import (
     Act,
     Condition,
-    EntityDef,
+    FollowTrajectoryAction,
     LaneChangeAction,
     Maneuver,
     ManeuverGroup,
@@ -59,6 +58,15 @@ class SimulationEngine:
             e.name: EntityRuntimeState.from_definition(e) for e in scenario.entities
         }
 
+        # Apply any extra init actions (e.g. FollowTrajectoryAction defined in Init)
+        for entity_name, actions in scenario.init_actions.items():
+            entity = self._entities.get(entity_name)
+            if entity is None:
+                continue
+            for action in actions:
+                if isinstance(action, FollowTrajectoryAction):
+                    entity.apply_trajectory(action.vertices)
+
         # Track which events have already fired
         self._event_states: dict[str, _EventState] = {}
 
@@ -94,11 +102,19 @@ class SimulationEngine:
         if kind == "distance":
             entity_ref = p.get("entity_ref", "")
             triggering = p.get("triggering_entities", list(self._entities.keys()))
+            coord_sys = p.get("coordinate_system", "entity")
+            rel_dist_type = p.get("relative_distance_type", "euclidianDistance")
             for ename in triggering:
                 e1 = self._entities.get(ename)
                 e2 = self._entities.get(entity_ref)
                 if e1 and e2:
-                    d = math.hypot(e1.x - e2.x, e1.y - e2.y)
+                    if (
+                        coord_sys == "entity"
+                        and rel_dist_type == "longitudinal"
+                    ):
+                        d = abs(e1.x - e2.x)
+                    else:
+                        d = math.hypot(e1.x - e2.x, e1.y - e2.y)
                     if _compare(d, p["rule"], p["value"]):
                         return True
         if kind == "ttc":
@@ -110,6 +126,18 @@ class SimulationEngine:
                     ttc = p["value"]  # placeholder
                     if _compare(ttc, p["rule"], p["value"]):
                         return True
+        if kind == "speed":
+            triggering = p.get("triggering_entities", list(self._entities.keys()))
+            for ename in triggering:
+                e1 = self._entities.get(ename)
+                if e1 and _compare(e1.speed, p["rule"], p["value"]):
+                    return True
+        if kind == "traveled_distance":
+            triggering = p.get("triggering_entities", list(self._entities.keys()))
+            for ename in triggering:
+                e1 = self._entities.get(ename)
+                if e1 and e1.odometer >= p["value"]:
+                    return True
         return False
 
     # ------------------------------------------------------------------
@@ -117,7 +145,7 @@ class SimulationEngine:
 
     def _apply_action(
         self,
-        action: SpeedAction | LaneChangeAction | TeleportAction,
+        action: SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction,
         actor_names: list[str],
     ) -> None:
         for name in actor_names:
@@ -138,6 +166,8 @@ class SimulationEngine:
                 )
             elif isinstance(action, TeleportAction):
                 entity.apply_teleport(action.position)
+            elif isinstance(action, FollowTrajectoryAction):
+                entity.apply_trajectory(action.vertices)
 
     # ------------------------------------------------------------------
     # Storyboard execution
@@ -175,9 +205,19 @@ class SimulationEngine:
             if state.fired and event.priority != "parallel":
                 continue
             if self._conditions_met(event.start_conditions):
+                # Enforce condition delay: record when conditions first became true
+                delay = max((c.delay for c in event.start_conditions), default=0.0)
+                if delay > 0.0:
+                    if state.trigger_time is None:
+                        state.trigger_time = self._time
+                    if self._time - state.trigger_time < delay:
+                        continue
                 for action in event.actions:
                     self._apply_action(action, actors)
                 state.fired = True
+            else:
+                # Reset trigger time if conditions no longer hold (rising-edge semantics)
+                state.trigger_time = None
 
     # ------------------------------------------------------------------
     # OSI GroundTruth construction
@@ -235,7 +275,7 @@ class SimulationEngine:
         mv.base.velocity.z = 0.0
 
         # Bounding box
-        l, w, h = defn.bounding_box
-        mv.base.dimension.length = l
-        mv.base.dimension.width = w
-        mv.base.dimension.height = h
+        length, width, height = defn.bounding_box
+        mv.base.dimension.length = length
+        mv.base.dimension.width = width
+        mv.base.dimension.height = height

@@ -6,15 +6,21 @@ import argparse
 import sys
 from pathlib import Path
 
+from osc_simulator import __version__
+from osc_simulator.output.osi_writer import SensorViewTraceWriter
 from osc_simulator.parser.openscenario import ScenarioParser
 from osc_simulator.simulation.engine import SimulationEngine
-from osc_simulator.output.osi_writer import SensorViewTraceWriter
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="osc-simulator",
         description="Execute an ASAM OpenSCENARIO file and emit ASAM OSI SensorView trace files.",
+    )
+    p.add_argument(
+        "-V", "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     p.add_argument("scenario", type=Path, help="Path to the .xosc input file")
     p.add_argument(

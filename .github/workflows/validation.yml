@@ -1,0 +1,59 @@
+name: osc-validation
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Run osc-validation suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out osc-simulator
+        uses: actions/checkout@v4
+        with:
+          path: osc-simulator
+
+      - name: Check out osc-validation
+        uses: actions/checkout@v4
+        with:
+          repository: PMSFIT/osc-validation
+          path: osc-validation
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pipx install "poetry>=2.0"
+
+      - name: Install osc-simulator
+        working-directory: osc-simulator
+        run: pip install -e ".[dev]"
+
+      - name: Install osc-validation
+        working-directory: osc-validation
+        run: poetry install --no-interaction
+
+      - name: Run osc-validation suite
+        working-directory: osc-validation
+        run: |
+          poetry run pytest validation/scenario \
+            --tool OscSimulator \
+            --toolpath "$(which osc-simulator)" \
+            --html=validation-report.html \
+            --self-contained-html \
+            -v
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osc-validation-report
+          path: osc-validation/validation-report.html
+          if-no-files-found: warn
