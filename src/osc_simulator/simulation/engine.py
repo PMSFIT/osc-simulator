@@ -112,7 +112,12 @@ class SimulationEngine:
                         coord_sys == "entity"
                         and rel_dist_type == "longitudinal"
                     ):
-                        d = abs(e1.x - e2.x)
+                        # Project separation onto e1's heading direction
+                        dx = e2.x - e1.x
+                        dy = e2.y - e1.y
+                        d = abs(
+                            dx * math.cos(e1.heading) + dy * math.sin(e1.heading)
+                        )
                     else:
                         d = math.hypot(e1.x - e2.x, e1.y - e2.y)
                     if _compare(d, p["rule"], p["value"]):

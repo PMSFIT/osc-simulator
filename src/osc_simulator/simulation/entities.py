@@ -213,6 +213,4 @@ class EntityRuntimeState:
             self.y += self.lateral_offset * math.sin(lateral_heading) * dt
 
         # Accumulate odometer
-        self.odometer += math.sqrt(
-            (self.x - prev_x) ** 2 + (self.y - prev_y) ** 2 + (self.z - prev_z) ** 2
-        )
+        self.odometer += math.hypot(self.x - prev_x, self.y - prev_y, self.z - prev_z)
