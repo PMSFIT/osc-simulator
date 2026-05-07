@@ -1,0 +1,53 @@
+name: Build and Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test with Hatch
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install hatch
+        run: pipx install hatch
+
+      - name: Build package
+        run: hatch build
+
+      - name: Run tests with coverage
+        run: hatch run test-cov
+
+      - name: Run linting checks
+        continue-on-error: true
+        run: hatch run lint
+
+      - name: Run type checking
+        continue-on-error: true
+        run: hatch run type
+
+      - name: Upload coverage reports
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-reports
+          path: ./coverage.xml
+          if-no-files-found: warn

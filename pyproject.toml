@@ -41,6 +41,22 @@ packages = ["src/osc_simulator"]
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4",
+    "mypy>=1.0",
+    "types-lxml>=2024.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args}"
+test-cov = "pytest --cov=osc_simulator --cov-report=term-missing --cov-report=xml {args}"
+lint = "ruff check {args:src tests}"
+format = "ruff format {args:src tests}"
+type = "mypy {args:src tests}"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=osc_simulator --cov-report=term-missing"
