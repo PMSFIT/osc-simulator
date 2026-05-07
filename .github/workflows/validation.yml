@@ -61,3 +61,12 @@ jobs:
           name: osc-validation-report
           path: osc-validation/validation-report.html
           if-no-files-found: warn
+
+      - name: Upload validation logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: osc-validation-logs
+          path: /tmp/pytest-of-runner/
+          if-no-files-found: warn
+          retention-days: 2
