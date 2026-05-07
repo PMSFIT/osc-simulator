@@ -27,12 +27,19 @@ dev = [
     "mypy>=1.0",
     "types-lxml>=2024.0",
 ]
+validation = [
+    "osc-validation @ git+https://github.com/PMSFIT/osc-validation.git",
+    "pytest-html>=4.2",
+]
 
 [project.scripts]
 osc-simulator = "osc_simulator.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/osc_simulator"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -6,19 +6,18 @@ simulation engine:
   - Init PrivateActions: TeleportAction (WorldPosition) and SpeedAction
   - Storyboard: Story → Act → ManeuverGroup → Maneuver → Event
   - Actions: LaneChangeAction, SpeedAction, TeleportAction, FollowTrajectoryAction
-  - Conditions: SimulationTimeCondition, EntityCondition (distance/TTC)
+  - Conditions: SimulationTimeCondition, EntityCondition (distance/TTC/speed/
+    traveledDistance), ByValueCondition (SimulationTime, Parameter)
   - StopTrigger via SimulationTimeCondition
 """
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from lxml import etree
-
 
 # ---------------------------------------------------------------------------
 # Domain model (parse result)
@@ -68,6 +67,19 @@ class TeleportAction:
 
 
 @dataclass
+class TrajectoryVertex:
+    """A single waypoint in a Polyline trajectory."""
+    time: float            # absolute simulation time (seconds)
+    position: WorldPosition
+
+
+@dataclass
+class FollowTrajectoryAction:
+    """FollowTrajectoryAction with Polyline shape (osc-validation minimal subset)."""
+    vertices: list[TrajectoryVertex] = field(default_factory=list)
+
+
+@dataclass
 class Condition:
     name: str
     delay: float = 0.0
@@ -79,7 +91,9 @@ class Condition:
 class Event:
     name: str
     priority: str
-    actions: list[SpeedAction | LaneChangeAction | TeleportAction] = field(default_factory=list)
+    actions: list[
+        SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction
+    ] = field(default_factory=list)
     start_conditions: list[Condition] = field(default_factory=list)
 
 
@@ -116,9 +130,9 @@ class Scenario:
     stories: list[Story] = field(default_factory=list)
     stop_conditions: list[Condition] = field(default_factory=list)
     # Map: entity_name → list of init actions beyond position/speed
-    init_actions: dict[str, list[SpeedAction | LaneChangeAction | TeleportAction]] = field(
-        default_factory=dict
-    )
+    init_actions: dict[
+        str, list[SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction]
+    ] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +321,7 @@ class ScenarioParser:
 
     def _parse_private_action(
         self, pa_el: etree._Element, q: Any
-    ) -> SpeedAction | LaneChangeAction | TeleportAction | None:
+    ) -> SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction | None:
         # TeleportAction
         tel_el = pa_el.find(q("TeleportAction"))
         if tel_el is not None:
@@ -331,7 +345,50 @@ class ScenarioParser:
             if lc_el is not None:
                 return self._parse_lane_change_action(lc_el, q)
 
+        # RoutingAction → FollowTrajectoryAction
+        routing_el = pa_el.find(q("RoutingAction"))
+        if routing_el is not None:
+            fta_el = routing_el.find(q("FollowTrajectoryAction"))
+            if fta_el is not None:
+                return self._parse_follow_trajectory_action(fta_el, q)
+
         return None
+
+    def _parse_follow_trajectory_action(
+        self, fta_el: etree._Element, q: Any
+    ) -> FollowTrajectoryAction:
+        vertices: list[TrajectoryVertex] = []
+
+        # The trajectory may be inline (under TrajectoryRef/Trajectory) or
+        # directly under FollowTrajectoryAction as a child Trajectory element.
+        traj_el = None
+        traj_ref_el = fta_el.find(q("TrajectoryRef"))
+        if traj_ref_el is not None:
+            traj_el = traj_ref_el.find(q("Trajectory"))
+        if traj_el is None:
+            traj_el = fta_el.find(q("Trajectory"))
+
+        if traj_el is not None:
+            shape_el = traj_el.find(q("Shape"))
+            if shape_el is not None:
+                polyline_el = shape_el.find(q("Polyline"))
+                if polyline_el is not None:
+                    for vertex_el in polyline_el.findall(q("Vertex")):
+                        time = _float(vertex_el, "time")
+                        pos_el = vertex_el.find(q("Position"))
+                        if pos_el is not None:
+                            wp_el = pos_el.find(q("WorldPosition"))
+                            if wp_el is not None:
+                                vertices.append(
+                                    TrajectoryVertex(
+                                        time=time,
+                                        position=self._parse_world_position(wp_el),
+                                    )
+                                )
+
+        # Sort vertices by time to be safe
+        vertices.sort(key=lambda v: v.time)
+        return FollowTrajectoryAction(vertices=vertices)
 
     def _parse_world_position(self, wp_el: etree._Element) -> WorldPosition:
         return WorldPosition(
@@ -442,6 +499,11 @@ class ScenarioParser:
                     params["value"] = _float(dist_el, "value")
                     params["rule"] = _str(dist_el, "rule", "lessThan")
                     params["entity_ref"] = _str(dist_el, "entityRef")
+                    # Optional: coordinate system / distance type for longitudinal mode
+                    coord_sys = _str(dist_el, "coordinateSystem", "entity")
+                    rel_dist_type = _str(dist_el, "relativeDistanceType", "euclidianDistance")
+                    params["coordinate_system"] = coord_sys
+                    params["relative_distance_type"] = rel_dist_type
                     return Condition(name=name, delay=delay, params=params)
 
                 ttc_el = ec_el.find(q("TimeToCollisionCondition"))
@@ -449,6 +511,19 @@ class ScenarioParser:
                     params["type"] = "ttc"
                     params["value"] = _float(ttc_el, "value")
                     params["rule"] = _str(ttc_el, "rule", "lessThan")
+                    return Condition(name=name, delay=delay, params=params)
+
+                speed_el = ec_el.find(q("SpeedCondition"))
+                if speed_el is not None:
+                    params["type"] = "speed"
+                    params["value"] = _float(speed_el, "value")
+                    params["rule"] = _str(speed_el, "rule", "greaterThan")
+                    return Condition(name=name, delay=delay, params=params)
+
+                dist_travel_el = ec_el.find(q("TraveledDistanceCondition"))
+                if dist_travel_el is not None:
+                    params["type"] = "traveled_distance"
+                    params["value"] = _float(dist_travel_el, "value")
                     return Condition(name=name, delay=delay, params=params)
 
         return None
