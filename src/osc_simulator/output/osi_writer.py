@@ -71,6 +71,12 @@ class SensorViewTraceWriter:
         sv.global_ground_truth.version.version_minor = self._reported_osi_version[1]
         sv.global_ground_truth.version.version_patch = self._reported_osi_version[2]
         sv.version.CopyFrom(sv.global_ground_truth.version)
+        sv.mounting_position.position.x = 0.0
+        sv.mounting_position.position.y = 0.0
+        sv.mounting_position.position.z = 0.0
+        sv.mounting_position.orientation.roll = 0.0
+        sv.mounting_position.orientation.pitch = 0.0
+        sv.mounting_position.orientation.yaw = 0.0
         if len(ground_truth.moving_object) > 0:
             sv.host_vehicle_id.CopyFrom(ground_truth.moving_object[0].id)
         return sv
