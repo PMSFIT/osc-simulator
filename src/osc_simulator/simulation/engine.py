@@ -277,6 +277,11 @@ class SimulationEngine:
         mv.base.velocity.y = state.speed * math.sin(state.heading)
         mv.base.velocity.z = 0.0
 
+        # Acceleration
+        mv.base.acceleration.x = state.acceleration * math.cos(state.heading)
+        mv.base.acceleration.y = state.acceleration * math.sin(state.heading)
+        mv.base.acceleration.z = 0.0
+
         # Bounding box
         length, width, height = defn.bounding_box
         mv.base.dimension.length = length

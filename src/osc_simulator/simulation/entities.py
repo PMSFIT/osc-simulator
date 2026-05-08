@@ -64,6 +64,7 @@ class EntityRuntimeState:
     z: float = 0.0
     heading: float = 0.0  # radians, 0 = East (+x), positive counter-clockwise
     speed: float = 0.0  # m/s longitudinal
+    acceleration: float = 0.0  # m/s² longitudinal
     lateral_offset: float = 0.0  # metres from initial lane centre
     odometer: float = 0.0  # total distance travelled (metres)
 
@@ -182,6 +183,7 @@ class EntityRuntimeState:
 
     def step(self, dt: float) -> None:
         prev_x, prev_y, prev_z = self.x, self.y, self.z
+        prev_speed = self.speed
 
         if self.trajectory is not None:
             # Advance the trajectory clock and interpolate
@@ -214,3 +216,5 @@ class EntityRuntimeState:
 
         # Accumulate odometer
         self.odometer += math.hypot(self.x - prev_x, self.y - prev_y, self.z - prev_z)
+        # Update acceleration
+        self.acceleration = (self.speed - prev_speed) / dt if dt > 0.0 else 0.0
