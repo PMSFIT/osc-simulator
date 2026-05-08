@@ -6,6 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from osi3.osi_version_pb2 import DESCRIPTOR as _OSI_FILE_DESCRIPTOR
+from osi3.osi_version_pb2 import current_interface_version as _osi_version_ext
+
 from osc_simulator import __version__
 from osc_simulator.output.osi_writer import SensorViewTraceWriter
 from osc_simulator.parser.openscenario import ScenarioParser
@@ -47,6 +50,33 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="ID",
         help="Sensor channel IDs to record (default: 0)",
     )
+    _osi_version = _OSI_FILE_DESCRIPTOR.GetOptions().Extensions[_osi_version_ext]
+    _osi_version_str = (
+        f"{_osi_version.version_major}.{_osi_version.version_minor}.{_osi_version.version_patch}"
+    )
+
+    p.add_argument(
+        "--reported-osi-version",
+        type=str,
+        default=_osi_version_str,
+        metavar="VERSION",
+        choices=[
+            "3.0.0",
+            "3.0.1",
+            "3.1.0",
+            "3.1.1",
+            "3.1.2",
+            "3.2.0",
+            "3.3.0",
+            "3.3.1",
+            "3.4.0",
+            "3.5.0",
+            "3.6.0",
+            "3.7.0",
+            _osi_version_str,
+        ],
+        help="Reported OSI version in the output trace files",
+    )
     return p
 
 
@@ -72,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
     for ch_id, path in channel_paths.items():
         print(f"  channel {ch_id} → {path}")
 
-    with SensorViewTraceWriter(channel_paths) as writer:
+    with SensorViewTraceWriter(channel_paths, args.reported_osi_version) as writer:
         engine = SimulationEngine(scenario, step_size=args.step_size)
         frame_count = 0
         for timestamp, ground_truth in engine.run():

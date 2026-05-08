@@ -9,10 +9,13 @@ from typing import Any
 
 from osi3.osi_sensorview_pb2 import SensorView
 from osi3.osi_version_pb2 import DESCRIPTOR as _OSI_FILE_DESCRIPTOR
-from osi3.osi_version_pb2 import current_interface_version as _OSI_VERSION_EXT
+from osi3.osi_version_pb2 import current_interface_version as _osi_version_ext
 from osi_utilities import MessageType, SingleTraceReader, SingleTraceWriter
 
-_OSI_VERSION = _OSI_FILE_DESCRIPTOR.GetOptions().Extensions[_OSI_VERSION_EXT]
+_OSI_VERSION = _OSI_FILE_DESCRIPTOR.GetOptions().Extensions[_osi_version_ext]
+_OSI_VERSION_STR = (
+    f"{_OSI_VERSION.version_major}.{_OSI_VERSION.version_minor}.{_OSI_VERSION.version_patch}"
+)
 
 
 class SensorViewTraceWriter:
@@ -22,10 +25,16 @@ class SensorViewTraceWriter:
     ----------
     channel_paths:
         Mapping of ``channel_id → output file path``.
+    reported_osi_version:
+        OSI version to report in the output trace files.
     """
 
-    def __init__(self, channel_paths: dict[int, Path]) -> None:
+    def __init__(
+        self, channel_paths: dict[int, Path], reported_osi_version: str = _OSI_VERSION_STR
+    ) -> None:
         self._channel_paths = channel_paths
+        self._reported_osi_version = list(map(int, reported_osi_version.split(".")))  # type: ignore[assignment]
+        assert len(self._reported_osi_version) == 3, "Invalid OSI version format"
         self._writers: dict[int, SingleTraceWriter] = {}
 
     def __enter__(self) -> SensorViewTraceWriter:
@@ -58,9 +67,12 @@ class SensorViewTraceWriter:
         sv.sensor_id.value = channel_id
         sv.timestamp.CopyFrom(ground_truth.timestamp)
         sv.global_ground_truth.CopyFrom(ground_truth)
+        sv.global_ground_truth.version.version_major = self._reported_osi_version[0]
+        sv.global_ground_truth.version.version_minor = self._reported_osi_version[1]
+        sv.global_ground_truth.version.version_patch = self._reported_osi_version[2]
+        sv.version.CopyFrom(sv.global_ground_truth.version)
         if len(ground_truth.moving_object) > 0:
             sv.host_vehicle_id.CopyFrom(ground_truth.moving_object[0].id)
-        sv.version.CopyFrom(_OSI_VERSION)
         return sv
 
 
