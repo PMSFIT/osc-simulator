@@ -1,6 +1,7 @@
 """Integration tests: parse → simulate → verify kinematics."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -10,19 +11,19 @@ from osc_simulator.simulation.engine import SimulationEngine
 EXAMPLE = Path(__file__).parent.parent / "examples" / "simple_scenario.xosc"
 
 
-def _run_all(scenario_path: Path, step_size: float = 0.05):
+def _run_all(scenario_path: Path, step_size: float = 0.05) -> list[tuple[float, Any]]:
     scenario = ScenarioParser().parse(scenario_path)
     engine = SimulationEngine(scenario, step_size=step_size)
     return list(engine.run())
 
 
-def test_frame_count():
+def test_frame_count() -> None:
     frames = _run_all(EXAMPLE)
     # 10 s / 0.05 s + 1 final frame = 201
     assert len(frames) == 201
 
 
-def test_timestamps_monotonic():
+def test_timestamps_monotonic() -> None:
     frames = _run_all(EXAMPLE)
     timestamps = [t for t, _ in frames]
     assert timestamps == sorted(timestamps)
@@ -30,7 +31,7 @@ def test_timestamps_monotonic():
     assert timestamps[-1] == pytest.approx(10.0, abs=1e-6)
 
 
-def test_ego_travels_east():
+def test_ego_travels_east() -> None:
     frames = _run_all(EXAMPLE)
     # At t=10 s, Ego should have travelled ~200 m East from origin
     _, gt = frames[-1]
@@ -39,7 +40,7 @@ def test_ego_travels_east():
     assert abs(ego_obj.base.position.y) < 1.0
 
 
-def test_npc_accelerates_after_3s():
+def test_npc_accelerates_after_3s() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     engine = SimulationEngine(scenario, step_size=0.05)
     frames = list(engine.run())
@@ -62,13 +63,13 @@ def test_npc_accelerates_after_3s():
     assert speed_after > 15.0
 
 
-def test_ground_truth_has_two_objects():
+def test_ground_truth_has_two_objects() -> None:
     frames = _run_all(EXAMPLE)
     _, gt = frames[0]
     assert len(gt.moving_object) == 2
 
 
-def test_osi_ground_truth_type():
+def test_osi_ground_truth_type() -> None:
     import osi3.osi_groundtruth_pb2 as osi_gt
 
     frames = _run_all(EXAMPLE)

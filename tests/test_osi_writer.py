@@ -20,7 +20,7 @@ def _build_minimal_gt(seconds: int = 0, nanos: int = 0) -> osi_gt.GroundTruth:
     return gt
 
 
-def test_writer_creates_files():
+def test_writer_creates_files() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         paths = {0: Path(tmpdir) / "ch0.osi", 1: Path(tmpdir) / "ch1.osi"}
         with SensorViewTraceWriter(paths) as writer:
@@ -30,7 +30,7 @@ def test_writer_creates_files():
             assert p.stat().st_size > 0
 
 
-def test_round_trip_frame_count():
+def test_round_trip_frame_count() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     engine = SimulationEngine(scenario, step_size=0.1)
     frames = list(engine.run())
@@ -46,7 +46,7 @@ def test_round_trip_frame_count():
     assert len(read_frames) == len(frames)
 
 
-def test_round_trip_timestamps():
+def test_round_trip_timestamps() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     engine = SimulationEngine(scenario, step_size=0.1)
 
@@ -63,7 +63,7 @@ def test_round_trip_timestamps():
             assert reconstructed == pytest.approx(expected_ts, abs=1e-6)
 
 
-def test_sensor_view_has_channel_id():
+def test_sensor_view_has_channel_id() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "ch42.osi"
         with SensorViewTraceWriter({42: path}) as writer:
@@ -73,7 +73,7 @@ def test_sensor_view_has_channel_id():
         assert frames[0].sensor_id.value == 42
 
 
-def test_multi_channel_independent_files():
+def test_multi_channel_independent_files() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         paths = {i: Path(tmpdir) / f"ch{i}.osi" for i in range(3)}
         with SensorViewTraceWriter(paths) as writer:

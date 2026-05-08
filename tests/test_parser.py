@@ -9,14 +9,14 @@ from osc_simulator.parser.openscenario import ScenarioParser, SpeedAction
 EXAMPLE = Path(__file__).parent.parent / "examples" / "simple_scenario.xosc"
 
 
-def test_parse_entities():
+def test_parse_entities() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     assert len(scenario.entities) == 2
     names = {e.name for e in scenario.entities}
     assert names == {"Ego", "NPC"}
 
 
-def test_parse_initial_positions():
+def test_parse_initial_positions() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     ego = next(e for e in scenario.entities if e.name == "Ego")
     npc = next(e for e in scenario.entities if e.name == "NPC")
@@ -24,7 +24,7 @@ def test_parse_initial_positions():
     assert npc.initial_state.position.x == pytest.approx(50.0)
 
 
-def test_parse_initial_speeds():
+def test_parse_initial_speeds() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     ego = next(e for e in scenario.entities if e.name == "Ego")
     npc = next(e for e in scenario.entities if e.name == "NPC")
@@ -32,7 +32,7 @@ def test_parse_initial_speeds():
     assert npc.initial_state.speed == pytest.approx(10.0)
 
 
-def test_parse_stop_trigger():
+def test_parse_stop_trigger() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     assert len(scenario.stop_conditions) == 1
     cond = scenario.stop_conditions[0]
@@ -40,7 +40,7 @@ def test_parse_stop_trigger():
     assert cond.params["value"] == pytest.approx(10.0)
 
 
-def test_parse_story_actions():
+def test_parse_story_actions() -> None:
     scenario = ScenarioParser().parse(EXAMPLE)
     assert len(scenario.stories) == 1
     story = scenario.stories[0]

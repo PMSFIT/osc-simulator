@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from xml.etree.ElementTree import QName
 
 from lxml import etree
 
@@ -162,6 +163,9 @@ class ScenarioParser:
         root = tree.getroot()
         # Strip namespace if present
         tag = root.tag
+        if isinstance(tag, QName):
+            tag = tag.text
+        assert isinstance(tag, str)
         ns = ""
         if tag.startswith("{"):
             ns = tag[: tag.index("}") + 1]
@@ -247,7 +251,9 @@ class ScenarioParser:
         for private_el in actions_el.findall(q("Private")):
             entity_name = _str(private_el, "entityRef")
             entity = next((e for e in scenario.entities if e.name == entity_name), None)
-            extra: list[SpeedAction | LaneChangeAction | TeleportAction] = []
+            extra: list[
+                SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction
+            ] = []
             for pa in private_el.findall(q("PrivateAction")):
                 action = self._parse_private_action(pa, q)
                 if action is None:

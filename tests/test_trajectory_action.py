@@ -5,11 +5,13 @@ from __future__ import annotations
 import math
 import textwrap
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from osc_simulator.parser.openscenario import (
     FollowTrajectoryAction,
+    Scenario,
     ScenarioParser,
     TrajectoryVertex,
 )
@@ -148,7 +150,9 @@ def _make_xosc(vertices: list[tuple[float, float, float, float]]) -> str:
 """)
 
 
-def _run_scenario(tmp_path: Path, xosc_text: str, step_size: float = 0.05):
+def _run_scenario(
+    tmp_path: Path, xosc_text: str, step_size: float = 0.05
+) -> tuple[list[tuple[float, Any]], Scenario]:
     scenario_file = tmp_path / "test.xosc"
     scenario_file.write_text(xosc_text)
     scenario = ScenarioParser().parse(scenario_file)

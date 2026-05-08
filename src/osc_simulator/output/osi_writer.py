@@ -33,7 +33,7 @@ class SensorViewTraceWriter:
         self, channel_paths: dict[int, Path], reported_osi_version: str = _OSI_VERSION_STR
     ) -> None:
         self._channel_paths = channel_paths
-        self._reported_osi_version = list(map(int, reported_osi_version.split(".")))  # type: ignore[assignment]
+        self._reported_osi_version = list(map(int, reported_osi_version.split(".")))
         assert len(self._reported_osi_version) == 3, "Invalid OSI version format"
         self._writers: dict[int, SingleTraceWriter] = {}
 
@@ -96,6 +96,6 @@ class SensorViewTraceReader:
         try:
             for result in reader:
                 if result.message is not None:
-                    yield result.message  # type: ignore[misc]
+                    yield result.message
         finally:
             reader.close()
