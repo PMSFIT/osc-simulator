@@ -7,7 +7,6 @@ import pytest
 from osc_simulator.parser.openscenario import ScenarioParser
 from osc_simulator.simulation.engine import SimulationEngine
 
-
 EXAMPLE = Path(__file__).parent.parent / "examples" / "simple_scenario.xosc"
 
 
@@ -49,11 +48,15 @@ def test_npc_accelerates_after_3s():
     t_before, gt_before = next((t, g) for t, g in frames if abs(t - 2.9) < 0.03)
     t_after, gt_after = next((t, g) for t, g in frames if abs(t - 5.5) < 0.03)
 
-    npc_before = next(o for o in gt_before.moving_object if o.id.value != gt_before.moving_object[0].id.value)
-    npc_after  = next(o for o in gt_after.moving_object  if o.id.value != gt_after.moving_object[0].id.value)
+    npc_before = next(
+        o for o in gt_before.moving_object if o.id.value != gt_before.moving_object[0].id.value
+    )
+    npc_after = next(
+        o for o in gt_after.moving_object if o.id.value != gt_after.moving_object[0].id.value
+    )
 
-    speed_before = (npc_before.base.velocity.x ** 2 + npc_before.base.velocity.y ** 2) ** 0.5
-    speed_after  = (npc_after.base.velocity.x  ** 2 + npc_after.base.velocity.y  ** 2) ** 0.5
+    speed_before = (npc_before.base.velocity.x**2 + npc_before.base.velocity.y**2) ** 0.5
+    speed_after = (npc_after.base.velocity.x**2 + npc_after.base.velocity.y**2) ** 0.5
 
     assert speed_before == pytest.approx(10.0, abs=0.5)
     assert speed_after > 15.0
@@ -67,6 +70,7 @@ def test_ground_truth_has_two_objects():
 
 def test_osi_ground_truth_type():
     import osi3.osi_groundtruth_pb2 as osi_gt
+
     frames = _run_all(EXAMPLE)
     _, gt = frames[0]
     assert isinstance(gt, osi_gt.GroundTruth)

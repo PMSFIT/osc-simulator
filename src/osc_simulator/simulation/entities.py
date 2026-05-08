@@ -11,10 +11,11 @@ from osc_simulator.parser.openscenario import EntityDef, TrajectoryVertex, World
 @dataclass
 class DynamicsProfile:
     """Active speed-change interpolation."""
+
     initial_speed: float = 0.0
     target_speed: float = 0.0
-    shape: str = "step"        # "step" | "linear" | "sinusoidal"
-    duration: float = 0.0      # seconds (0 → immediate)
+    shape: str = "step"  # "step" | "linear" | "sinusoidal"
+    duration: float = 0.0  # seconds (0 → immediate)
     elapsed: float = 0.0
 
     def is_complete(self) -> bool:
@@ -35,6 +36,7 @@ class DynamicsProfile:
 @dataclass
 class LateralProfile:
     """Active lateral-offset interpolation."""
+
     initial_offset: float = 0.0
     target_offset: float = 0.0
     shape: str = "sinusoidal"
@@ -60,8 +62,8 @@ class EntityRuntimeState:
     x: float = 0.0
     y: float = 0.0
     z: float = 0.0
-    heading: float = 0.0   # radians, 0 = East (+x), positive counter-clockwise
-    speed: float = 0.0     # m/s longitudinal
+    heading: float = 0.0  # radians, 0 = East (+x), positive counter-clockwise
+    speed: float = 0.0  # m/s longitudinal
     lateral_offset: float = 0.0  # metres from initial lane centre
     odometer: float = 0.0  # total distance travelled (metres)
 
@@ -87,9 +89,7 @@ class EntityRuntimeState:
             speed=s.speed,
         )
 
-    def apply_speed_action(
-        self, target: float, shape: str = "step", duration: float = 0.0
-    ) -> None:
+    def apply_speed_action(self, target: float, shape: str = "step", duration: float = 0.0) -> None:
         self.dynamics = DynamicsProfile(
             initial_speed=self.speed,
             target_speed=target,

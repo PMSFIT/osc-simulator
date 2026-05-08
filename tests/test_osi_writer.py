@@ -1,17 +1,14 @@
 """Tests for the OSI SensorView trace writer / reader round-trip."""
 
-import struct
 import tempfile
 from pathlib import Path
 
+import osi3.osi_groundtruth_pb2 as osi_gt
 import pytest
 
-import osi3.osi_groundtruth_pb2 as osi_gt
-
-from osc_simulator.output.osi_writer import SensorViewTraceWriter, SensorViewTraceReader
+from osc_simulator.output.osi_writer import SensorViewTraceReader, SensorViewTraceWriter
 from osc_simulator.parser.openscenario import ScenarioParser
 from osc_simulator.simulation.engine import SimulationEngine
-
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "simple_scenario.xosc"
 
@@ -61,7 +58,7 @@ def test_round_trip_timestamps():
                 writer.write_frame(ts, gt)
                 source_timestamps.append(ts)
 
-        for sv, expected_ts in zip(SensorViewTraceReader(path), source_timestamps):
+        for sv, expected_ts in zip(SensorViewTraceReader(path), source_timestamps, strict=False):
             reconstructed = sv.timestamp.seconds + sv.timestamp.nanos * 1e-9
             assert reconstructed == pytest.approx(expected_ts, abs=1e-6)
 

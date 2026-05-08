@@ -108,16 +108,11 @@ class SimulationEngine:
                 e1 = self._entities.get(ename)
                 e2 = self._entities.get(entity_ref)
                 if e1 and e2:
-                    if (
-                        coord_sys == "entity"
-                        and rel_dist_type == "longitudinal"
-                    ):
+                    if coord_sys == "entity" and rel_dist_type == "longitudinal":
                         # Project separation onto e1's heading direction
                         dx = e2.x - e1.x
                         dy = e2.y - e1.y
-                        d = abs(
-                            dx * math.cos(e1.heading) + dy * math.sin(e1.heading)
-                        )
+                        d = abs(dx * math.cos(e1.heading) + dy * math.sin(e1.heading))
                     else:
                         d = math.hypot(e1.x - e2.x, e1.y - e2.y)
                     if _compare(d, p["rule"], p["value"]):

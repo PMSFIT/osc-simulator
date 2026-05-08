@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from osc_simulator.parser.openscenario import ScenarioParser, SpeedAction, TeleportAction
-
+from osc_simulator.parser.openscenario import ScenarioParser, SpeedAction
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "simple_scenario.xosc"
 

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Iterator
+from typing import Any
 
 from osi3.osi_sensorview_pb2 import SensorView
-from osi3.osi_version_pb2 import DESCRIPTOR as _OSI_FILE_DESCRIPTOR, current_interface_version as _OSI_VERSION_EXT
-from osi_utilities import SingleTraceWriter, SingleTraceReader, MessageType
+from osi3.osi_version_pb2 import DESCRIPTOR as _OSI_FILE_DESCRIPTOR
+from osi3.osi_version_pb2 import current_interface_version as _OSI_VERSION_EXT
+from osi_utilities import MessageType, SingleTraceReader, SingleTraceWriter
 
 _OSI_VERSION = _OSI_FILE_DESCRIPTOR.GetOptions().Extensions[_OSI_VERSION_EXT]
 
@@ -26,7 +28,7 @@ class SensorViewTraceWriter:
         self._channel_paths = channel_paths
         self._writers: dict[int, SingleTraceWriter] = {}
 
-    def __enter__(self) -> "SensorViewTraceWriter":
+    def __enter__(self) -> SensorViewTraceWriter:
         for ch_id, path in self._channel_paths.items():
             writer = SingleTraceWriter()
             writer.open(path)

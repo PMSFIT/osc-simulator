@@ -18,13 +18,15 @@ def build_parser() -> argparse.ArgumentParser:
         description="Execute an ASAM OpenSCENARIO file and emit ASAM OSI SensorView trace files.",
     )
     p.add_argument(
-        "-V", "--version",
+        "-V",
+        "--version",
         action="version",
         version=f"%(prog)s {__version__}",
     )
     p.add_argument("scenario", type=Path, help="Path to the .xosc input file")
     p.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         type=Path,
         default=Path("."),
         metavar="DIR",
@@ -64,8 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     scenario = parser.parse(scenario_path)
 
     channel_paths = {
-        ch_id: output_dir / f"{scenario_path.stem}_channel{ch_id}.osi"
-        for ch_id in args.channels
+        ch_id: output_dir / f"{scenario_path.stem}_channel{ch_id}.osi" for ch_id in args.channels
     }
     print("Output channels:")
     for ch_id, path in channel_paths.items():

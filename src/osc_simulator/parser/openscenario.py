@@ -23,6 +23,7 @@ from lxml import etree
 # Domain model (parse result)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class WorldPosition:
     x: float = 0.0
@@ -36,29 +37,29 @@ class WorldPosition:
 @dataclass
 class EntityState:
     position: WorldPosition = field(default_factory=WorldPosition)
-    speed: float = 0.0            # m/s longitudinal
+    speed: float = 0.0  # m/s longitudinal
 
 
 @dataclass
 class EntityDef:
     name: str
-    category: str                 # "car", "truck", "pedestrian", …
+    category: str  # "car", "truck", "pedestrian", …
     bounding_box: tuple[float, float, float] = (4.5, 2.0, 1.5)  # l, w, h metres
     initial_state: EntityState = field(default_factory=EntityState)
 
 
 @dataclass
 class SpeedAction:
-    target_speed: float           # m/s
+    target_speed: float  # m/s
     dynamics_shape: str = "step"  # "step", "linear", "sinusoidal"
-    dynamics_value: float = 0.0   # time (s) or distance (m) for non-step
+    dynamics_value: float = 0.0  # time (s) or distance (m) for non-step
 
 
 @dataclass
 class LaneChangeAction:
-    target_lane_offset: float     # metres lateral offset (simplified)
+    target_lane_offset: float  # metres lateral offset (simplified)
     dynamics_shape: str = "sinusoidal"
-    dynamics_value: float = 3.0   # duration in seconds
+    dynamics_value: float = 3.0  # duration in seconds
 
 
 @dataclass
@@ -69,13 +70,15 @@ class TeleportAction:
 @dataclass
 class TrajectoryVertex:
     """A single waypoint in a Polyline trajectory."""
-    time: float            # absolute simulation time (seconds)
+
+    time: float  # absolute simulation time (seconds)
     position: WorldPosition
 
 
 @dataclass
 class FollowTrajectoryAction:
     """FollowTrajectoryAction with Polyline shape (osc-validation minimal subset)."""
+
     vertices: list[TrajectoryVertex] = field(default_factory=list)
 
 
@@ -91,9 +94,9 @@ class Condition:
 class Event:
     name: str
     priority: str
-    actions: list[
-        SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction
-    ] = field(default_factory=list)
+    actions: list[SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction] = field(
+        default_factory=list
+    )
     start_conditions: list[Condition] = field(default_factory=list)
 
 
@@ -178,9 +181,7 @@ class ScenarioParser:
 
     # ------------------------------------------------------------------
 
-    def _parse_entities(
-        self, root: etree._Element, q: Any, scenario: Scenario
-    ) -> None:
+    def _parse_entities(self, root: etree._Element, q: Any, scenario: Scenario) -> None:
         entities_el = root.find(q("Entities"))
         if entities_el is None:
             return
@@ -205,9 +206,7 @@ class ScenarioParser:
                 return raw_cat, bbox
         return "unknown", (4.5, 2.0, 1.5)
 
-    def _parse_bounding_box(
-        self, el: etree._Element, q: Any
-    ) -> tuple[float, float, float]:
+    def _parse_bounding_box(self, el: etree._Element, q: Any) -> tuple[float, float, float]:
         bb = el.find(q("BoundingBox"))
         if bb is None:
             return (4.5, 2.0, 1.5)
@@ -222,9 +221,7 @@ class ScenarioParser:
 
     # ------------------------------------------------------------------
 
-    def _parse_storyboard(
-        self, root: etree._Element, q: Any, scenario: Scenario
-    ) -> None:
+    def _parse_storyboard(self, root: etree._Element, q: Any, scenario: Scenario) -> None:
         sb = root.find(q("Storyboard"))
         if sb is None:
             return
@@ -243,9 +240,7 @@ class ScenarioParser:
         if stop_el is not None:
             scenario.stop_conditions = self._parse_trigger(stop_el, q)
 
-    def _parse_init(
-        self, init_el: etree._Element, q: Any, scenario: Scenario
-    ) -> None:
+    def _parse_init(self, init_el: etree._Element, q: Any, scenario: Scenario) -> None:
         actions_el = init_el.find(q("Actions"))
         if actions_el is None:
             return
@@ -281,9 +276,7 @@ class ScenarioParser:
             act.maneuver_groups.append(self._parse_maneuver_group(mg_el, q))
         return act
 
-    def _parse_maneuver_group(
-        self, mg_el: etree._Element, q: Any
-    ) -> ManeuverGroup:
+    def _parse_maneuver_group(self, mg_el: etree._Element, q: Any) -> ManeuverGroup:
         mg = ManeuverGroup(name=_str(mg_el, "name"))
         actors_el = mg_el.find(q("Actors"))
         if actors_el is not None:
@@ -400,9 +393,7 @@ class ScenarioParser:
             r=_float(wp_el, "r"),
         )
 
-    def _parse_speed_action(
-        self, speed_el: etree._Element, q: Any
-    ) -> SpeedAction:
+    def _parse_speed_action(self, speed_el: etree._Element, q: Any) -> SpeedAction:
         dyn_el = speed_el.find(q("SpeedActionDynamics"))
         shape = "step"
         dyn_val = 0.0
@@ -422,9 +413,7 @@ class ScenarioParser:
             dynamics_value=dyn_val,
         )
 
-    def _parse_lane_change_action(
-        self, lc_el: etree._Element, q: Any
-    ) -> LaneChangeAction:
+    def _parse_lane_change_action(self, lc_el: etree._Element, q: Any) -> LaneChangeAction:
         dyn_el = lc_el.find(q("LaneChangeActionDynamics"))
         shape = "sinusoidal"
         dyn_val = 3.0
@@ -447,9 +436,7 @@ class ScenarioParser:
 
     # ------------------------------------------------------------------
 
-    def _parse_trigger(
-        self, trigger_el: etree._Element, q: Any
-    ) -> list[Condition]:
+    def _parse_trigger(self, trigger_el: etree._Element, q: Any) -> list[Condition]:
         conditions: list[Condition] = []
         for cg_el in trigger_el.findall(q("ConditionGroup")):
             for cond_el in cg_el.findall(q("Condition")):
@@ -458,9 +445,7 @@ class ScenarioParser:
                     conditions.append(cond)
         return conditions
 
-    def _parse_condition(
-        self, cond_el: etree._Element, q: Any
-    ) -> Condition | None:
+    def _parse_condition(self, cond_el: etree._Element, q: Any) -> Condition | None:
         name = _str(cond_el, "name")
         delay = _float(cond_el, "delay")
         params: dict[str, Any] = {"edge": _str(cond_el, "conditionEdge", "none")}

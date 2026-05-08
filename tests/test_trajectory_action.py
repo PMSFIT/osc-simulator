@@ -19,6 +19,7 @@ from osc_simulator.simulation.engine import SimulationEngine
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_xosc(vertices: list[tuple[float, float, float, float]]) -> str:
     """Return a minimal .xosc string with one vehicle following a polyline.
 
@@ -159,6 +160,7 @@ def _run_scenario(tmp_path: Path, xosc_text: str, step_size: float = 0.05):
 # Parser tests
 # ---------------------------------------------------------------------------
 
+
 def test_parser_reads_follow_trajectory_action(tmp_path: Path) -> None:
     """FollowTrajectoryAction with Polyline vertices should be parsed correctly."""
     vertices = [(0.0, 0.0, 0.0, 0.0), (2.0, 20.0, 0.0, 0.0)]
@@ -188,6 +190,7 @@ def test_parser_trajectory_vertex_dataclass() -> None:
 # ---------------------------------------------------------------------------
 # Simulation tests
 # ---------------------------------------------------------------------------
+
 
 def test_trajectory_start_position(tmp_path: Path) -> None:
     """Entity must be at the first vertex at t=0."""
