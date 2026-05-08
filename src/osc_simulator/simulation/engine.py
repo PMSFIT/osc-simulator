@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import osi3.osi_groundtruth_pb2 as osi_gt
+import osi3.osi_object_pb2 as osi_object
 
 from osc_simulator.parser.openscenario import (
     Act,
@@ -267,6 +268,23 @@ class SimulationEngine:
         cat = defn.category
         if cat in ("car", "truck", "van", "bus", "motorcycle", "trailer"):
             mv.type = 2  # TYPE_VEHICLE
+            mv.vehicle_attributes.number_wheels = (
+                4 if cat in ("car", "van") else 6 if cat in ("truck", "bus") else 2
+            )
+            mv.vehicle_attributes.bbcenter_to_rear.x = defn.bounding_box[0] / 2
+            mv.vehicle_classification.type = (
+                osi_object.MovingObject.VehicleClassification.TYPE_CAR
+                if cat == "car"
+                else osi_object.MovingObject.VehicleClassification.TYPE_VAN
+                if cat == "van"
+                else osi_object.MovingObject.VehicleClassification.TYPE_HEAVY_TRUCK
+                if cat == "truck"
+                else osi_object.MovingObject.VehicleClassification.TYPE_BUS
+                if cat == "bus"
+                else osi_object.MovingObject.VehicleClassification.TYPE_TRAILER
+                if cat == "trailer"
+                else osi_object.MovingObject.VehicleClassification.TYPE_MOTORCYCLE
+            )
         elif cat == "pedestrian":
             mv.type = 3  # TYPE_PEDESTRIAN
 
