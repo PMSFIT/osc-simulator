@@ -230,6 +230,14 @@ class SimulationEngine:
         ts.seconds = whole_seconds
         ts.nanos = nanos
 
+        gt.country_code = 276  # Germany
+        gt.proj_string = "EPSG:4326"  # WGS 84
+        gt.map_reference = "none"
+        gt.proj_frame_offset.position.x = 0.0
+        gt.proj_frame_offset.position.y = 0.0
+        gt.proj_frame_offset.position.z = 0.0
+        gt.proj_frame_offset.yaw = 0.0
+
         for name, state in self._entities.items():
             defn = state.definition
             if defn.category in ("car", "truck", "van", "bus", "motorcycle", "trailer"):
