@@ -246,6 +246,9 @@ class SimulationEngine:
                 so.base.position.y = state.y
                 so.base.position.z = state.z
 
+        if len(gt.moving_object) > 0:
+            gt.host_vehicle_id.CopyFrom(gt.moving_object[0].id)
+
         return gt
 
     def _fill_moving_object(self, mv: Any, state: EntityRuntimeState) -> None:

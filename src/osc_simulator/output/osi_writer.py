@@ -77,8 +77,7 @@ class SensorViewTraceWriter:
         sv.mounting_position.orientation.roll = 0.0
         sv.mounting_position.orientation.pitch = 0.0
         sv.mounting_position.orientation.yaw = 0.0
-        if len(ground_truth.moving_object) > 0:
-            sv.host_vehicle_id.CopyFrom(ground_truth.moving_object[0].id)
+        sv.host_vehicle_id.CopyFrom(ground_truth.host_vehicle_id)
         return sv
 
 
