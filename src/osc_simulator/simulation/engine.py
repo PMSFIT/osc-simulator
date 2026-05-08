@@ -285,6 +285,9 @@ class SimulationEngine:
                 if cat == "trailer"
                 else osi_object.MovingObject.VehicleClassification.TYPE_MOTORCYCLE
             )
+            mv.vehicle_classification.role = (
+                osi_object.MovingObject.VehicleClassification.ROLE_CIVIL
+            )
         elif cat == "pedestrian":
             mv.type = 3  # TYPE_PEDESTRIAN
 
