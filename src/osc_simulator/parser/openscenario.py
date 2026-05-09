@@ -99,6 +99,7 @@ class Event:
         default_factory=list
     )
     start_conditions: list[Condition] = field(default_factory=list)
+    has_start_trigger: bool = False  # whether a StartTrigger element was present
 
 
 @dataclass
@@ -119,6 +120,7 @@ class Act:
     name: str
     maneuver_groups: list[ManeuverGroup] = field(default_factory=list)
     start_conditions: list[Condition] = field(default_factory=list)
+    has_start_trigger: bool = False  # whether a StartTrigger element was present
 
 
 @dataclass
@@ -278,6 +280,7 @@ class ScenarioParser:
         start_el = act_el.find(q("StartTrigger"))
         if start_el is not None:
             act.start_conditions = self._parse_trigger(start_el, q)
+            act.has_start_trigger = True
         for mg_el in act_el.findall(q("ManeuverGroup")):
             act.maneuver_groups.append(self._parse_maneuver_group(mg_el, q))
         return act
@@ -314,6 +317,7 @@ class ScenarioParser:
         start_el = ev_el.find(q("StartTrigger"))
         if start_el is not None:
             event.start_conditions = self._parse_trigger(start_el, q)
+            event.has_start_trigger = True
         return event
 
     # ------------------------------------------------------------------

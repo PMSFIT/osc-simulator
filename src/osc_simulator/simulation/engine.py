@@ -190,7 +190,7 @@ class SimulationEngine:
             self._evaluate_act(act)
 
     def _evaluate_act(self, act: Act) -> None:
-        if not self._conditions_met(act.start_conditions):
+        if act.has_start_trigger and not self._conditions_met(act.start_conditions):
             return
         for mg in act.maneuver_groups:
             self._evaluate_maneuver_group(mg)
@@ -205,7 +205,7 @@ class SimulationEngine:
             state = self._event_states.setdefault(event_key, _EventState())
             if state.fired and event.priority != "parallel":
                 continue
-            if self._conditions_met(event.start_conditions):
+            if not event.has_start_trigger or self._conditions_met(event.start_conditions):
                 # Enforce condition delay: record when conditions first became true
                 delay = max((c.delay for c in event.start_conditions), default=0.0)
                 if delay > 0.0:
