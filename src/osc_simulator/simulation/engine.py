@@ -77,6 +77,7 @@ class SimulationEngine:
     def run(self) -> Iterator[tuple[float, Any]]:
         """Yield ``(timestamp_seconds, osi3.GroundTruth)`` for each time step."""
         while not self._stop_triggered():
+            self._evaluate_storyboard()
             gt = self._build_ground_truth()
             yield self._time, gt
             self._advance()
@@ -174,7 +175,6 @@ class SimulationEngine:
     # Storyboard execution
 
     def _advance(self) -> None:
-        self._evaluate_storyboard()
         for entity in self._entities.values():
             entity.step(self._dt)
         self._time += self._dt
