@@ -183,3 +183,268 @@ def test_storyboard_element_state_condition_triggers_dependent_event(tmp_path: P
         ego = gt0.moving_object[0]
         speed = (ego.base.velocity.x**2 + ego.base.velocity.y**2) ** 0.5
         assert speed == pytest.approx(12.0, abs=0.2)
+
+
+def test_storyboard_running_state_precedes_complete_state(tmp_path: Path) -> None:
+        xosc = textwrap.dedent(
+                """<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+    <FileHeader revMajor="1" revMinor="1" date="2024-01-01T00:00:00"
+                            description="State sequencing test" author="test"/>
+    <RoadNetwork><LogicFile filepath=""/><SceneGraphFile filepath=""/></RoadNetwork>
+    <Entities>
+        <ScenarioObject name="Ego"><Vehicle name="Car" vehicleCategory="car"/></ScenarioObject>
+    </Entities>
+    <Storyboard>
+        <Init>
+            <Actions>
+                <Private entityRef="Ego">
+                    <PrivateAction>
+                        <TeleportAction>
+                            <Position><WorldPosition x="0.0" y="0.0" z="0.0" h="0.0"/></Position>
+                        </TeleportAction>
+                    </PrivateAction>
+                </Private>
+            </Actions>
+        </Init>
+        <Story name="MainStory">
+            <Act name="MainAct">
+                <ManeuverGroup name="MainGroup">
+                    <Actors><EntityRef entityRef="Ego"/></Actors>
+                    <Maneuver name="MainManeuver">
+                        <Event name="E1" priority="overwrite">
+                            <Action name="RampSpeed">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionDynamics dynamicsShape="linear" value="1.0" dynamicsDimension="time"/>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="10.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="StartE1" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <SimulationTimeCondition value="0.0" rule="greaterOrEqual"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                        <Event name="E2" priority="overwrite">
+                            <Action name="OnRunning">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="7.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="E1Running" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <StoryboardElementStateCondition storyboardElementRef="E1"
+                                                storyboardElementType="event" state="runningState"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                        <Event name="E3" priority="overwrite">
+                            <Action name="OnComplete">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="12.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="E1Complete" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <StoryboardElementStateCondition storyboardElementRef="E1"
+                                                storyboardElementType="event" state="completeState"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                    </Maneuver>
+                </ManeuverGroup>
+                <StartTrigger>
+                    <ConditionGroup>
+                        <Condition name="ActStart" delay="0" conditionEdge="none">
+                            <ByValueCondition>
+                                <SimulationTimeCondition value="0.0" rule="greaterOrEqual"/>
+                            </ByValueCondition>
+                        </Condition>
+                    </ConditionGroup>
+                </StartTrigger>
+            </Act>
+        </Story>
+        <StopTrigger>
+            <ConditionGroup>
+                <Condition name="End" delay="0" conditionEdge="none">
+                    <ByValueCondition>
+                        <SimulationTimeCondition value="0.2" rule="greaterOrEqual"/>
+                    </ByValueCondition>
+                </Condition>
+            </ConditionGroup>
+        </StopTrigger>
+    </Storyboard>
+</OpenSCENARIO>
+"""
+        )
+        scenario_file = tmp_path / "state_sequence.xosc"
+        scenario_file.write_text(xosc)
+
+        scenario = ScenarioParser().parse(scenario_file)
+        engine = SimulationEngine(scenario, step_size=0.05)
+        frames = list(engine.run())
+
+        # E2 should trigger from E1 runningState, setting speed to 7 m/s.
+        # E3 (completeState) must not trigger in the same tick.
+        _, gt0 = frames[0]
+        ego = gt0.moving_object[0]
+        speed0 = (ego.base.velocity.x**2 + ego.base.velocity.y**2) ** 0.5
+        assert speed0 == pytest.approx(7.0, abs=0.2)
+
+
+def test_storyboard_complete_state_triggers_on_later_frame(tmp_path: Path) -> None:
+        xosc = textwrap.dedent(
+                """<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+    <FileHeader revMajor="1" revMinor="1" date="2024-01-01T00:00:00"
+                            description="Complete state timing test" author="test"/>
+    <RoadNetwork><LogicFile filepath=""/><SceneGraphFile filepath=""/></RoadNetwork>
+    <Entities>
+        <ScenarioObject name="Ego"><Vehicle name="Car" vehicleCategory="car"/></ScenarioObject>
+    </Entities>
+    <Storyboard>
+        <Init>
+            <Actions>
+                <Private entityRef="Ego">
+                    <PrivateAction>
+                        <TeleportAction>
+                            <Position><WorldPosition x="0.0" y="0.0" z="0.0" h="0.0"/></Position>
+                        </TeleportAction>
+                    </PrivateAction>
+                </Private>
+            </Actions>
+        </Init>
+        <Story name="MainStory">
+            <Act name="MainAct">
+                <ManeuverGroup name="MainGroup">
+                    <Actors><EntityRef entityRef="Ego"/></Actors>
+                    <Maneuver name="MainManeuver">
+                        <Event name="E1" priority="overwrite">
+                            <Action name="RampSpeed">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionDynamics dynamicsShape="linear" value="0.5" dynamicsDimension="time"/>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="10.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="StartE1" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <SimulationTimeCondition value="0.0" rule="greaterOrEqual"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                        <Event name="E2" priority="overwrite">
+                            <Action name="OnRunning">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="6.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="E1Running" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <StoryboardElementStateCondition storyboardElementRef="E1"
+                                                storyboardElementType="event" state="runningState"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                        <Event name="E3" priority="overwrite">
+                            <Action name="OnComplete">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="11.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="E1Complete" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <StoryboardElementStateCondition storyboardElementRef="E1"
+                                                storyboardElementType="event" state="completeState"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                    </Maneuver>
+                </ManeuverGroup>
+                <StartTrigger>
+                    <ConditionGroup>
+                        <Condition name="ActStart" delay="0" conditionEdge="none">
+                            <ByValueCondition>
+                                <SimulationTimeCondition value="0.0" rule="greaterOrEqual"/>
+                            </ByValueCondition>
+                        </Condition>
+                    </ConditionGroup>
+                </StartTrigger>
+            </Act>
+        </Story>
+        <StopTrigger>
+            <ConditionGroup>
+                <Condition name="End" delay="0" conditionEdge="none">
+                    <ByValueCondition>
+                        <SimulationTimeCondition value="0.1" rule="greaterOrEqual"/>
+                    </ByValueCondition>
+                </Condition>
+            </ConditionGroup>
+        </StopTrigger>
+    </Storyboard>
+</OpenSCENARIO>
+"""
+        )
+        scenario_file = tmp_path / "state_complete_timing.xosc"
+        scenario_file.write_text(xosc)
+
+        scenario = ScenarioParser().parse(scenario_file)
+        engine = SimulationEngine(scenario, step_size=0.05)
+        frames = list(engine.run())
+
+        # Frame 0: E1 has started but is not complete yet, so E2 (runningState) can fire.
+        _, gt0 = frames[0]
+        speed0 = (gt0.moving_object[0].base.velocity.x**2 + gt0.moving_object[0].base.velocity.y**2) ** 0.5
+        assert speed0 == pytest.approx(6.0, abs=0.2)
+
+        # Frame 1: E1 completion is observed on the next evaluation cycle, so E3 can fire then.
+        _, gt1 = frames[1]
+        speed1 = (gt1.moving_object[0].base.velocity.x**2 + gt1.moving_object[0].base.velocity.y**2) ** 0.5
+        assert speed1 == pytest.approx(11.0, abs=0.2)

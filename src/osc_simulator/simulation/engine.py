@@ -42,8 +42,22 @@ def _compare(actual: float, rule: str, threshold: float) -> bool:
 
 class _EventState:
     def __init__(self) -> None:
-        self.fired = False
+        self.started = False
+        self.completed = False
         self.trigger_time: float | None = None
+        self.action_states: list[_ActionExecutionState] = []
+
+
+class _ActionExecutionState:
+    def __init__(
+        self,
+        action: SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction,
+        actor_names: list[str],
+    ) -> None:
+        self.action = action
+        self.actor_names = actor_names
+        self.started = False
+        self.completed = False
 
 
 class SimulationEngine:
@@ -185,6 +199,52 @@ class SimulationEngine:
             elif isinstance(action, FollowTrajectoryAction):
                 entity.apply_trajectory(action.vertices)
 
+    def _is_action_completed(
+        self,
+        action: SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction,
+        actor_names: list[str],
+    ) -> bool:
+        if isinstance(action, TeleportAction):
+            return True
+
+        if isinstance(action, SpeedAction):
+            if action.dynamics_shape == "step" or action.dynamics_value <= 0.0:
+                return True
+            for name in actor_names:
+                entity = self._entities.get(name)
+                if entity is None:
+                    continue
+                if entity.dynamics is not None:
+                    return False
+            return True
+
+        if isinstance(action, LaneChangeAction):
+            if action.dynamics_value <= 0.0:
+                return True
+            for name in actor_names:
+                entity = self._entities.get(name)
+                if entity is None:
+                    continue
+                if entity.lateral is not None:
+                    return False
+            return True
+
+        if isinstance(action, FollowTrajectoryAction):
+            if not action.vertices:
+                return True
+            end_time = action.vertices[-1].time
+            for name in actor_names:
+                entity = self._entities.get(name)
+                if entity is None:
+                    continue
+                if entity.trajectory is None:
+                    return True
+                if entity._trajectory_time < end_time:
+                    return False
+            return True
+
+        return False
+
     # ------------------------------------------------------------------
     # Storyboard execution
 
@@ -196,8 +256,10 @@ class SimulationEngine:
         self._time = round(self._time, 9)
 
     def _evaluate_storyboard(self) -> None:
+        self._update_event_action_completion_states()
         for story in self._scenario.stories:
             self._evaluate_story(story)
+        self._update_event_action_completion_states()
         self._update_storyboard_completion_states()
 
     def _evaluate_story(self, story: Story) -> None:
@@ -233,7 +295,7 @@ class SimulationEngine:
         for event in maneuver.events:
             event_key = self._event_key(story, act, mg, maneuver, event)
             state = self._event_states.setdefault(event_key, _EventState())
-            if state.fired and event.priority != "parallel":
+            if state.started and event.priority != "parallel":
                 continue
             if not event.has_start_trigger or self._conditions_met(event.start_conditions):
                 # Enforce condition delay: record when conditions first became true
@@ -243,14 +305,33 @@ class SimulationEngine:
                         state.trigger_time = self._time
                     if self._time - state.trigger_time < delay:
                         continue
-                for action in event.actions:
-                    self._apply_action(action, actors)
-                state.fired = True
+                state.started = True
                 self._started_elements.add(event_key)
-                self._completed_elements.add(event_key)
+                for action in event.actions:
+                    action_state = _ActionExecutionState(action, list(actors))
+                    state.action_states.append(action_state)
+                    action_state.started = True
+                    self._apply_action(action, actors)
+                    action_state.completed = self._is_action_completed(action, actors)
+                if not state.action_states or all(a.completed for a in state.action_states):
+                    state.completed = True
+                    self._completed_elements.add(event_key)
             else:
                 # Reset trigger time if conditions no longer hold (rising-edge semantics)
                 state.trigger_time = None
+
+    def _update_event_action_completion_states(self) -> None:
+        for state in self._event_states.values():
+            if not state.started or state.completed:
+                continue
+            for action_state in state.action_states:
+                if action_state.completed:
+                    continue
+                action_state.completed = self._is_action_completed(
+                    action_state.action, action_state.actor_names
+                )
+            if all(a.completed for a in state.action_states):
+                state.completed = True
 
     def _story_key(self, story: Story) -> str:
         return f"story:{story.name}"
@@ -304,7 +385,7 @@ class SimulationEngine:
                         for event in maneuver.events:
                             event_key = self._event_key(story, act, mg, maneuver, event)
                             event_state = self._event_states.get(event_key)
-                            if event_state is not None and event_state.fired:
+                            if event_state is not None and event_state.completed:
                                 self._completed_elements.add(event_key)
                             else:
                                 events_complete = False
