@@ -1,5 +1,6 @@
 """Integration tests: parse → simulate → verify kinematics."""
 
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -75,3 +76,110 @@ def test_osi_ground_truth_type() -> None:
     frames = _run_all(EXAMPLE)
     _, gt = frames[0]
     assert isinstance(gt, osi_gt.GroundTruth)
+
+
+def test_storyboard_element_state_condition_triggers_dependent_event(tmp_path: Path) -> None:
+        xosc = textwrap.dedent(
+                """<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+    <FileHeader revMajor="1" revMinor="1" date="2024-01-01T00:00:00"
+                            description="State condition integration test" author="test"/>
+    <RoadNetwork><LogicFile filepath=""/><SceneGraphFile filepath=""/></RoadNetwork>
+    <Entities>
+        <ScenarioObject name="Ego"><Vehicle name="Car" vehicleCategory="car"/></ScenarioObject>
+    </Entities>
+    <Storyboard>
+        <Init>
+            <Actions>
+                <Private entityRef="Ego">
+                    <PrivateAction>
+                        <TeleportAction>
+                            <Position><WorldPosition x="0.0" y="0.0" z="0.0" h="0.0"/></Position>
+                        </TeleportAction>
+                    </PrivateAction>
+                </Private>
+            </Actions>
+        </Init>
+        <Story name="MainStory">
+            <Act name="MainAct">
+                <ManeuverGroup name="MainGroup">
+                    <Actors><EntityRef entityRef="Ego"/></Actors>
+                    <Maneuver name="MainManeuver">
+                        <Event name="E1" priority="overwrite">
+                            <Action name="SetLowSpeed">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="5.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="StartE1" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <SimulationTimeCondition value="0.0" rule="greaterOrEqual"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                        <Event name="E2" priority="overwrite">
+                            <Action name="SetHighSpeed">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="12.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger>
+                                <ConditionGroup>
+                                    <Condition name="AfterE1" delay="0" conditionEdge="none">
+                                        <ByValueCondition>
+                                            <StoryboardElementStateCondition storyboardElementRef="E1"
+                                                storyboardElementType="event" state="completeState"/>
+                                        </ByValueCondition>
+                                    </Condition>
+                                </ConditionGroup>
+                            </StartTrigger>
+                        </Event>
+                    </Maneuver>
+                </ManeuverGroup>
+                <StartTrigger>
+                    <ConditionGroup>
+                        <Condition name="ActStart" delay="0" conditionEdge="none">
+                            <ByValueCondition>
+                                <SimulationTimeCondition value="0.0" rule="greaterOrEqual"/>
+                            </ByValueCondition>
+                        </Condition>
+                    </ConditionGroup>
+                </StartTrigger>
+            </Act>
+        </Story>
+        <StopTrigger>
+            <ConditionGroup>
+                <Condition name="End" delay="0" conditionEdge="none">
+                    <ByValueCondition>
+                        <SimulationTimeCondition value="0.2" rule="greaterOrEqual"/>
+                    </ByValueCondition>
+                </Condition>
+            </ConditionGroup>
+        </StopTrigger>
+    </Storyboard>
+</OpenSCENARIO>
+"""
+        )
+        scenario_file = tmp_path / "state_condition.xosc"
+        scenario_file.write_text(xosc)
+
+        scenario = ScenarioParser().parse(scenario_file)
+        engine = SimulationEngine(scenario, step_size=0.05)
+        frames = list(engine.run())
+
+        _, gt0 = frames[0]
+        ego = gt0.moving_object[0]
+        speed = (ego.base.velocity.x**2 + ego.base.velocity.y**2) ** 0.5
+        assert speed == pytest.approx(12.0, abs=0.2)

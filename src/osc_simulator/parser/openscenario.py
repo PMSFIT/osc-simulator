@@ -470,6 +470,14 @@ class ScenarioParser:
                 params["rule"] = _str(sim_el, "rule", "greaterThan")
                 return Condition(name=name, delay=delay, params=params)
 
+            ses_el = bv_el.find(q("StoryboardElementStateCondition"))
+            if ses_el is not None:
+                params["type"] = "storyboard_element_state"
+                params["storyboard_element_ref"] = _str(ses_el, "storyboardElementRef")
+                params["storyboard_element_type"] = _str(ses_el, "storyboardElementType").lower()
+                params["state"] = _str(ses_el, "state")
+                return Condition(name=name, delay=delay, params=params)
+
             param_el = bv_el.find(q("ParameterCondition"))
             if param_el is not None:
                 params["type"] = "parameter"
