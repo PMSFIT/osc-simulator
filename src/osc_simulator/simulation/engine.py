@@ -257,10 +257,9 @@ class SimulationEngine:
 
     def _evaluate_storyboard(self) -> None:
         self._update_event_action_completion_states()
+        self._update_storyboard_completion_states()
         for story in self._scenario.stories:
             self._evaluate_story(story)
-        self._update_event_action_completion_states()
-        self._update_storyboard_completion_states()
 
     def _evaluate_story(self, story: Story) -> None:
         story_key = self._story_key(story)
