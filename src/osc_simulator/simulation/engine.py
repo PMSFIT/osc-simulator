@@ -42,8 +42,22 @@ def _compare(actual: float, rule: str, threshold: float) -> bool:
 
 class _EventState:
     def __init__(self) -> None:
-        self.fired = False
+        self.started = False
+        self.completed = False
         self.trigger_time: float | None = None
+        self.action_states: list[_ActionExecutionState] = []
+
+
+class _ActionExecutionState:
+    def __init__(
+        self,
+        action: SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction,
+        actor_names: list[str],
+    ) -> None:
+        self.action = action
+        self.actor_names = actor_names
+        self.started = False
+        self.completed = False
 
 
 class SimulationEngine:
@@ -70,6 +84,12 @@ class SimulationEngine:
 
         # Track which events have already fired
         self._event_states: dict[str, _EventState] = {}
+
+        # Track storyboard element lifecycle (started/completed) for
+        # StoryboardElementStateCondition support.
+        self._started_elements: set[str] = set()
+        self._completed_elements: set[str] = set()
+        self._storyboard_lookup = self._build_storyboard_lookup()
 
     # ------------------------------------------------------------------
     # Public
@@ -140,6 +160,14 @@ class SimulationEngine:
                 e1 = self._entities.get(ename)
                 if e1 and e1.odometer >= p["value"]:
                     return True
+        if kind == "storyboard_element_state":
+            element_type = p.get("storyboard_element_type", "").lower()
+            element_ref = p.get("storyboard_element_ref", "")
+            requested_state = p.get("state", "")
+            key = self._storyboard_lookup.get((element_type, element_ref), element_ref)
+            started = key in self._started_elements
+            completed = key in self._completed_elements
+            return self._match_storyboard_state(started, completed, requested_state)
         return False
 
     # ------------------------------------------------------------------
@@ -171,6 +199,52 @@ class SimulationEngine:
             elif isinstance(action, FollowTrajectoryAction):
                 entity.apply_trajectory(action.vertices)
 
+    def _is_action_completed(
+        self,
+        action: SpeedAction | LaneChangeAction | TeleportAction | FollowTrajectoryAction,
+        actor_names: list[str],
+    ) -> bool:
+        if isinstance(action, TeleportAction):
+            return True
+
+        if isinstance(action, SpeedAction):
+            if action.dynamics_shape == "step" or action.dynamics_value <= 0.0:
+                return True
+            for name in actor_names:
+                entity = self._entities.get(name)
+                if entity is None:
+                    continue
+                if entity.dynamics is not None:
+                    return False
+            return True
+
+        if isinstance(action, LaneChangeAction):
+            if action.dynamics_value <= 0.0:
+                return True
+            for name in actor_names:
+                entity = self._entities.get(name)
+                if entity is None:
+                    continue
+                if entity.lateral is not None:
+                    return False
+            return True
+
+        if isinstance(action, FollowTrajectoryAction):
+            if not action.vertices:
+                return True
+            end_time = action.vertices[-1].time
+            for name in actor_names:
+                entity = self._entities.get(name)
+                if entity is None:
+                    continue
+                if entity.trajectory is None:
+                    return True
+                if entity._trajectory_time < end_time:
+                    return False
+            return True
+
+        return False
+
     # ------------------------------------------------------------------
     # Storyboard execution
 
@@ -182,28 +256,45 @@ class SimulationEngine:
         self._time = round(self._time, 9)
 
     def _evaluate_storyboard(self) -> None:
+        self._update_event_action_completion_states()
+        self._update_storyboard_completion_states()
         for story in self._scenario.stories:
             self._evaluate_story(story)
 
     def _evaluate_story(self, story: Story) -> None:
+        story_key = self._story_key(story)
+        self._started_elements.add(story_key)
         for act in story.acts:
-            self._evaluate_act(act)
+            self._evaluate_act(story, act)
 
-    def _evaluate_act(self, act: Act) -> None:
+    def _evaluate_act(self, story: Story, act: Act) -> None:
+        act_key = self._act_key(story, act)
         if act.has_start_trigger and not self._conditions_met(act.start_conditions):
             return
+        self._started_elements.add(act_key)
         for mg in act.maneuver_groups:
-            self._evaluate_maneuver_group(mg)
+            self._evaluate_maneuver_group(story, act, mg)
 
-    def _evaluate_maneuver_group(self, mg: ManeuverGroup) -> None:
+    def _evaluate_maneuver_group(self, story: Story, act: Act, mg: ManeuverGroup) -> None:
+        mg_key = self._maneuver_group_key(story, act, mg)
+        self._started_elements.add(mg_key)
         for maneuver in mg.maneuvers:
-            self._evaluate_maneuver(maneuver, mg.actors)
+            self._evaluate_maneuver(story, act, mg, maneuver, mg.actors)
 
-    def _evaluate_maneuver(self, maneuver: Maneuver, actors: list[str]) -> None:
+    def _evaluate_maneuver(
+        self,
+        story: Story,
+        act: Act,
+        mg: ManeuverGroup,
+        maneuver: Maneuver,
+        actors: list[str],
+    ) -> None:
+        maneuver_key = self._maneuver_key(story, act, mg, maneuver)
+        self._started_elements.add(maneuver_key)
         for event in maneuver.events:
-            event_key = f"{maneuver.name}/{event.name}"
+            event_key = self._event_key(story, act, mg, maneuver, event)
             state = self._event_states.setdefault(event_key, _EventState())
-            if state.fired and event.priority != "parallel":
+            if state.started and event.priority != "parallel":
                 continue
             if not event.has_start_trigger or self._conditions_met(event.start_conditions):
                 # Enforce condition delay: record when conditions first became true
@@ -213,12 +304,115 @@ class SimulationEngine:
                         state.trigger_time = self._time
                     if self._time - state.trigger_time < delay:
                         continue
+                state.started = True
+                self._started_elements.add(event_key)
                 for action in event.actions:
+                    action_state = _ActionExecutionState(action, list(actors))
+                    state.action_states.append(action_state)
+                    action_state.started = True
                     self._apply_action(action, actors)
-                state.fired = True
+                    action_state.completed = self._is_action_completed(action, actors)
+                if not state.action_states or all(a.completed for a in state.action_states):
+                    state.completed = True
+                    self._completed_elements.add(event_key)
             else:
                 # Reset trigger time if conditions no longer hold (rising-edge semantics)
                 state.trigger_time = None
+
+    def _update_event_action_completion_states(self) -> None:
+        for state in self._event_states.values():
+            if not state.started or state.completed:
+                continue
+            for action_state in state.action_states:
+                if action_state.completed:
+                    continue
+                action_state.completed = self._is_action_completed(
+                    action_state.action, action_state.actor_names
+                )
+            if all(a.completed for a in state.action_states):
+                state.completed = True
+
+    def _story_key(self, story: Story) -> str:
+        return f"story:{story.name}"
+
+    def _act_key(self, story: Story, act: Act) -> str:
+        return f"act:{story.name}/{act.name}"
+
+    def _maneuver_group_key(self, story: Story, act: Act, mg: ManeuverGroup) -> str:
+        return f"maneuvergroup:{story.name}/{act.name}/{mg.name}"
+
+    def _maneuver_key(self, story: Story, act: Act, mg: ManeuverGroup, maneuver: Maneuver) -> str:
+        return f"maneuver:{story.name}/{act.name}/{mg.name}/{maneuver.name}"
+
+    def _event_key(
+        self, story: Story, act: Act, mg: ManeuverGroup, maneuver: Maneuver, event: Any
+    ) -> str:
+        return f"event:{story.name}/{act.name}/{mg.name}/{maneuver.name}/{event.name}"
+
+    def _build_storyboard_lookup(self) -> dict[tuple[str, str], str]:
+        lookup: dict[tuple[str, str], str] = {}
+        for story in self._scenario.stories:
+            story_key = self._story_key(story)
+            lookup.setdefault(("story", story.name), story_key)
+            for act in story.acts:
+                act_key = self._act_key(story, act)
+                lookup.setdefault(("act", act.name), act_key)
+                for mg in act.maneuver_groups:
+                    mg_key = self._maneuver_group_key(story, act, mg)
+                    lookup.setdefault(("maneuvergroup", mg.name), mg_key)
+                    for maneuver in mg.maneuvers:
+                        maneuver_key = self._maneuver_key(story, act, mg, maneuver)
+                        lookup.setdefault(("maneuver", maneuver.name), maneuver_key)
+                        for event in maneuver.events:
+                            event_key = self._event_key(story, act, mg, maneuver, event)
+                            lookup.setdefault(("event", event.name), event_key)
+        return lookup
+
+    def _update_storyboard_completion_states(self) -> None:
+        for story in self._scenario.stories:
+            story_key = self._story_key(story)
+            acts_complete = True
+            for act in story.acts:
+                act_key = self._act_key(story, act)
+                mgs_complete = True
+                for mg in act.maneuver_groups:
+                    mg_key = self._maneuver_group_key(story, act, mg)
+                    maneuvers_complete = True
+                    for maneuver in mg.maneuvers:
+                        maneuver_key = self._maneuver_key(story, act, mg, maneuver)
+                        events_complete = True
+                        for event in maneuver.events:
+                            event_key = self._event_key(story, act, mg, maneuver, event)
+                            event_state = self._event_states.get(event_key)
+                            if event_state is not None and event_state.completed:
+                                self._completed_elements.add(event_key)
+                            else:
+                                events_complete = False
+                        if events_complete and maneuver.events:
+                            self._completed_elements.add(maneuver_key)
+                        else:
+                            maneuvers_complete = False
+                    if maneuvers_complete and mg.maneuvers:
+                        self._completed_elements.add(mg_key)
+                    else:
+                        mgs_complete = False
+                if mgs_complete and act.maneuver_groups:
+                    self._completed_elements.add(act_key)
+                else:
+                    acts_complete = False
+            if acts_complete and story.acts:
+                self._completed_elements.add(story_key)
+
+    def _match_storyboard_state(self, started: bool, completed: bool, state: str) -> bool:
+        if state == "standbyState":
+            return not started
+        if state in {"runningState", "startTransition"}:
+            return started and not completed
+        if state in {"completeState", "endTransition"}:
+            return completed
+        if state in {"stopTransition", "skipTransition"}:
+            return False
+        return False
 
     # ------------------------------------------------------------------
     # OSI GroundTruth construction
