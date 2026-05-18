@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -44,14 +44,53 @@ jobs:
         run: poetry install --no-interaction
 
       - name: Run osc-validation suite
+        id: run_validation
         working-directory: osc-validation
         run: |
+          set +e
           poetry run pytest validation/scenario \
             --tool OscSimulator \
             --toolpath "$(which osc-simulator)" \
             --html=validation-report.html \
+            --junitxml=validation-results.xml \
             --self-contained-html \
             -v
+          pytest_exit_code=$?
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          total_tests = 0
+          failures = 0
+          errors = 0
+          skipped = 0
+
+          try:
+            root = ET.parse("validation-results.xml").getroot()
+            suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
+            for suite in suites:
+              total_tests += int(suite.attrib.get("tests", 0))
+              failures += int(suite.attrib.get("failures", 0))
+              errors += int(suite.attrib.get("errors", 0))
+              skipped += int(suite.attrib.get("skipped", 0))
+          except Exception:
+            pass
+
+          passed_tests = max(total_tests - failures - errors - skipped, 0)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
+            github_output.write(f"total_tests={total_tests}\n")
+            github_output.write(f"passed_tests={passed_tests}\n")
+          PY
+          exit "$pytest_exit_code"
+
+      - name: Build validation ratio badge
+        if: always()
+        uses: peterrhodesdev/build-a-badge@v1.3.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filename: validation-suite-tests
+          label: validation
+          message: ${{ steps.run_validation.outputs.passed_tests }}/${{ steps.run_validation.outputs.total_tests }}
 
       - name: Upload validation report
         if: always()

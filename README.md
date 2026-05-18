@@ -2,6 +2,7 @@
 
 [![Build and Test](https://github.com/PMSFIT/osc-simulator/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/PMSFIT/osc-simulator/actions/workflows/build-and-test.yml)
 [![Validation](https://github.com/PMSFIT/osc-simulator/actions/workflows/validation.yml/badge.svg)](https://github.com/PMSFIT/osc-simulator/actions/workflows/validation.yml)
+[![Validation Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/wiki/PMSFIT/osc-simulator/validation-suite-tests.md)](https://github.com/PMSFIT/osc-simulator/actions/workflows/validation.yml)
 
 This repository provides a baseline simulator for ASAM OpenSCENARIO XML scenarios.
 It serves as an adjunct to the [OpenSCENARIO XML Validation Suite](https://github.com/PMSFIT/osc-validation), which provides test cases to validate a scenario engine against a subset of the [ASAM OpenSCENARIO XML standard](https://www.asam.net/standards/detail/openscenario-xml/).
