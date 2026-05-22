@@ -28,7 +28,7 @@ dev = [
     "types-lxml>=2024.0",
 ]
 validation = [
-    "osc-validation @ git+https://github.com/PMSFIT/osc-validation.git",
+    "osc-validation @ git+https://github.com/PMSFIT/osc-validation.git@feature/reorganize-pytest-setup",
     "pytest-html>=4.2",
 ]
 
@@ -42,12 +42,8 @@ packages = ["src/osc_simulator"]
 allow-direct-references = true
 
 [tool.hatch.envs.default]
-dependencies = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "ruff>=0.4",
-    "mypy>=1.0",
-    "types-lxml>=2024.0",
+features = [
+  "dev",
 ]
 
 [tool.hatch.envs.default.scripts]
@@ -72,3 +68,11 @@ select = ["E", "F", "I", "UP", "N", "B", "SIM"]
 python_version = "3.10"
 strict = true
 ignore_missing_imports = true
+
+[tool.hatch.envs.validation]
+features = [
+  "validation",
+]
+
+[tool.hatch.envs.validation.scripts]
+validate = "osc-validate --tool OscSimulator --toolpath $(which osc-simulator) {args}"
