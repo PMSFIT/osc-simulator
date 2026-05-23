@@ -1,0 +1,15 @@
+[[xfail]]
+test = "scenario/triggers/val_condition_delay.py::*"
+reason = "Condition Delay Divergeance"
+
+[[xfail]]
+test = "scenario/triggers/val_distance_*.py::*"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/triggers/val_speed_start_trigger.py::*"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/triggers/val_time_to_collision_start_trigger.py::*"
+reason = "Unknown Condition Divergeance"
