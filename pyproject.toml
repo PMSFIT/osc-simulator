@@ -28,7 +28,7 @@ dev = [
     "types-lxml>=2024.0",
 ]
 validation = [
-    "osc-validation @ git+https://github.com/PMSFIT/osc-validation.git@feature/reorganize-pytest-setup",
+    "osc-validation @ git+https://github.com/PMSFIT/osc-validation.git@feature/improve-checker-reporting",
     "pytest-html>=4.2",
 ]
 
@@ -75,4 +75,5 @@ features = [
 ]
 
 [tool.hatch.envs.validation.scripts]
-validate = "osc-validate --tool OscSimulator --toolpath $(which osc-simulator) {args}"
+validate = "osc-validate --tool OscSimulator --toolpath $(which osc-simulator) --test-profile val-profile.toml {args}"
+validate-all = "osc-validate --tool OscSimulator --toolpath $(which osc-simulator) {args}"
