@@ -61,7 +61,7 @@ jobs:
             github_output.write(f"passed_tests={passed_tests}\n")
             github_output.write(f"failed_tests={failures + errors}\n")
             github_output.write(f"skipped_tests={skipped}\n")
-            github_output.write(f"all_tests_passed={passed_tests == total_tests}\n")
+            github_output.write(f"all_tests_passed={'true' if passed_tests == total_tests else 'false'}\n")
           PY
           exit "$pytest_exit_code"
 
@@ -74,7 +74,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload validation logs
-        if: ${{ failure() || !steps.run_validation.outputs.all_tests_passed }}
+        if: ${{ failure() || steps.run_validation.outputs.all_tests_passed == 'false' }}
         uses: actions/upload-artifact@v7
         with:
           name: osc-validation-logs
