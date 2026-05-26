@@ -62,15 +62,6 @@ jobs:
           PY
           exit "$pytest_exit_code"
 
-      - name: Build validation ratio badge
-        if: always()
-        uses: peterrhodesdev/build-a-badge@v1.3.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          filename: validation-suite-tests
-          label: validation
-          message: ${{ steps.run_validation.outputs.passed_tests }}/${{ steps.run_validation.outputs.total_tests }}
-
       - name: Upload validation report
         if: always()
         uses: actions/upload-artifact@v7
