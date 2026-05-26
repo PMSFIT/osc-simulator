@@ -74,7 +74,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload validation logs
-        if: failure() or ${{ !steps.run_validation.outputs.all_tests_passed }}
+        if: ${{ failure() || !steps.run_validation.outputs.all_tests_passed }}
         uses: actions/upload-artifact@v7
         with:
           name: osc-validation-logs
@@ -89,5 +89,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           filename: validation-suite-tests
           label: validation
-          message: ${{ steps.run_validation.outputs.passed_tests }}/${{ steps.run_validation.outputs.total_tests }}
+          message: ${{ steps.run_validation.outputs.passed_tests }}/${{ steps.run_validation.outputs.skipped_tests }}/${{ steps.run_validation.outputs.total_tests }}
           color: ${{ steps.run_validation.outputs.all_tests_passed == 'true' && 'brightgreen' || steps.run_validation.outputs.skipped_tests != '0' && 'yellow' || 'red' }}
