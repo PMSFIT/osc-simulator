@@ -59,17 +59,11 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
             github_output.write(f"total_tests={total_tests}\n")
             github_output.write(f"passed_tests={passed_tests}\n")
+            github_output.write(f"failed_tests={failures + errors}\n")
+            github_output.write(f"skipped_tests={skipped}\n")
+            github_output.write(f"all_tests_passed={passed_tests == total_tests}\n")
           PY
           exit "$pytest_exit_code"
-
-      - name: Build validation ratio badge
-        if: always()
-        uses: ./.github/actions/build-a-badge
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          filename: validation-suite-tests
-          label: validation
-          message: ${{ steps.run_validation.outputs.passed_tests }}/${{ steps.run_validation.outputs.total_tests }}
 
       - name: Upload validation report
         if: always()
@@ -80,10 +74,20 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload validation logs
-        if: failure()
+        if: failure() or ${{ !steps.run_validation.outputs.all_tests_passed }}
         uses: actions/upload-artifact@v7
         with:
           name: osc-validation-logs
           path: /tmp/pytest-of-runner/
           if-no-files-found: warn
           retention-days: 2
+
+      - name: Build validation ratio badge
+        if: always()
+        uses: ./.github/actions/build-a-badge
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filename: validation-suite-tests
+          label: validation
+          message: ${{ steps.run_validation.outputs.passed_tests }}/${{ steps.run_validation.outputs.total_tests }}
+          color: ${{ steps.run_validation.outputs.all_tests_passed == 'true' && 'brightgreen' || steps.run_validation.outputs.skipped_tests != '0' && 'yellow' || 'red' }}
