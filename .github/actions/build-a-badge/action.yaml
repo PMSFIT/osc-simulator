@@ -1,0 +1,163 @@
+name: "Build-A-Badge"
+description: "Creates dynamic and customizable README badges using shields.io/endpoint"
+branding:
+  icon: "shield"
+  color: "blue"
+inputs:
+  token:
+    description: "Used for authentication"
+    required: true
+  filename:
+    description: "The filename to use in the wiki for storing the JSON badge data"
+    required: true
+  label:
+    description: "The left text, or the empty string to omit the left side of the badge"
+    required: true
+  message:
+    description: "The right text"
+    required: true
+  color:
+    description: "The right color"
+    required: false
+    default: ""
+  labelColor:
+    description: "The left color"
+    required: false
+    default: ""
+  namedLogo:
+    description: "Logo supported by Shields"
+    required: false
+    default: ""
+  logoSvg:
+    description: "An SVG string containing a custom logo"
+    required: false
+    default: ""
+  style:
+    description: "The default template to use"
+    required: false
+    default: ""
+  wikiCommitUsername:
+    description: "Override for the wiki commit username"
+    required: false
+    default: ""
+  wikiCommitEmail:
+    description: "Override for the wiki commit email"
+    required: false
+    default: ""
+  wikiCommitMessage:
+    description: "Override for the wiki commit message"
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Output number of badges
+      id: number_of_badges
+      run: |
+        declare -a BAB_INPUTS_FILENAME_ARRAY=${{ inputs.filename }}
+        echo "value=$(echo ${#BAB_INPUTS_FILENAME_ARRAY[@]})" >> $GITHUB_OUTPUT
+      shell: bash
+    - name: Check out repo
+      uses: actions/checkout@v6
+      if: inputs.wikiCommitUsername == '' || inputs.wikiCommitEmail == '' || inputs.wikiCommitMessage == ''
+      with:
+        token: ${{ inputs.token }}
+    - name: Output wiki commit details
+      id: wiki_commit
+      run: |
+        if [[ -n "${{ inputs.wikiCommitUsername }}" ]]; then
+          WIKI_COMMIT_USERNAME="${{ inputs.wikiCommitUsername }}"
+        else
+          WIKI_COMMIT_USERNAME=$(git log -n 1 --pretty=format:%an)
+        fi
+        echo "username=$WIKI_COMMIT_USERNAME" >> $GITHUB_OUTPUT
+
+        if [[ -n "${{ inputs.wikiCommitEmail }}" ]]; then
+          WIKI_COMMIT_EMAIL="${{ inputs.wikiCommitEmail }}"
+        else
+          WIKI_COMMIT_EMAIL=$(git log -n 1 --pretty=format:%ae)
+        fi
+        echo "email=$WIKI_COMMIT_EMAIL" >> $GITHUB_OUTPUT
+
+        if [[ -n "${{ inputs.wikiCommitMessage }}" ]]; then
+          WIKI_COMMIT_MESSAGE="${{ inputs.wikiCommitMessage }}"
+        else
+          WIKI_COMMIT_MESSAGE=https://github.com/${{ github.repository }}/commit/$(git log -n 1 --pretty=format:"%H")
+        fi
+        echo "message=$WIKI_COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+      shell: bash
+    - name: Check out wiki
+      uses: actions/checkout@v6
+      with:
+        token: ${{ inputs.token }}
+        repository: "${{ github.repository }}.wiki"
+        path: wiki
+    - name: Update wiki
+      run: |
+        cd ./wiki
+
+        if [[ ${{ steps.number_of_badges.outputs.value }} -eq 1 ]]; then
+          BAB_INPUTS_FILENAME="${{ inputs.filename }}"
+          BAB_INPUTS_LABEL="${{ inputs.label }}"
+          BAB_INPUTS_MESSAGE="${{ inputs.message }}"
+          BAB_INPUTS_COLOR="${{ inputs.color }}"
+          BAB_INPUTS_LABELCOLOR="${{ inputs.labelColor }}"
+          BAB_INPUTS_NAMEDLOGO="${{ inputs.namedLogo }}"
+          BAB_INPUTS_LOGOSVG="${{ inputs.logoSvg }}"
+          BAB_INPUTS_STYLE="${{ inputs.style }}"
+        else
+          declare -a BAB_INPUTS_FILENAME_ARRAY=${{ inputs.filename }}
+          declare -a BAB_INPUTS_LABEL_ARRAY=${{ inputs.label }}
+          declare -a BAB_INPUTS_MESSAGE_ARRAY=${{ inputs.message }}
+          declare -a BAB_INPUTS_COLOR_ARRAY=${{ inputs.color }}
+          declare -a BAB_INPUTS_LABELCOLOR_ARRAY=${{ inputs.labelColor }}
+          declare -a BAB_INPUTS_NAMEDLOGO_ARRAY=${{ inputs.namedLogo }}
+          declare -a BAB_INPUTS_LOGOSVG_ARRAY=${{ inputs.logoSvg }}
+          declare -a BAB_INPUTS_STYLE_ARRAY=${{ inputs.style }}
+        fi
+
+        for i in {1..${{ steps.number_of_badges.outputs.value }}}; do
+          BADGE_JSON="{\"schemaVersion\":1"
+
+          if [[ ${{ steps.number_of_badges.outputs.value }} -ne 1 ]]; then
+            BAB_INPUTS_FILENAME=${BAB_INPUTS_FILENAME_ARRAY[i-1]}
+            BAB_INPUTS_LABEL=${BAB_INPUTS_LABEL_ARRAY[i-1]}
+            BAB_INPUTS_MESSAGE=${BAB_INPUTS_MESSAGE_ARRAY[i-1]}
+            BAB_INPUTS_COLOR=${BAB_INPUTS_COLOR_ARRAY[i-1]}
+            BAB_INPUTS_LABELCOLOR=${BAB_INPUTS_LABELCOLOR_ARRAY[i-1]}
+            BAB_INPUTS_NAMEDLOGO=${BAB_INPUTS_NAMEDLOGO_ARRAY[i-1]}
+            BAB_INPUTS_LOGOSVG=${BAB_INPUTS_LOGOSVG_ARRAY[i-1]}
+            BAB_INPUTS_STYLE=${BAB_INPUTS_STYLE_ARRAY[i-1]}
+          fi
+
+          BADGE_JSON="$BADGE_JSON,\"label\":\"$BAB_INPUTS_LABEL\""
+          BADGE_JSON="$BADGE_JSON,\"message\":\"$BAB_INPUTS_MESSAGE\""
+          
+          declare -A OPTIONAL_PARAMETERS_ARRAY
+          OPTIONAL_PARAMETERS_ARRAY["color"]=$BAB_INPUTS_COLOR
+          OPTIONAL_PARAMETERS_ARRAY["labelColor"]=$BAB_INPUTS_LABELCOLOR
+          OPTIONAL_PARAMETERS_ARRAY["namedLogo"]=$BAB_INPUTS_NAMEDLOGO
+          OPTIONAL_PARAMETERS_ARRAY["logoSvg"]=$(echo $BAB_INPUTS_LOGOSVG | sed -e 's/"/\\"/g')
+          OPTIONAL_PARAMETERS_ARRAY["style"]=$BAB_INPUTS_STYLE
+
+          for key in ${!OPTIONAL_PARAMETERS_ARRAY[@]}; do
+            if [[ -n "${OPTIONAL_PARAMETERS_ARRAY[${key}]}" ]]; then
+              BADGE_JSON="$BADGE_JSON,\"$key\":\"${OPTIONAL_PARAMETERS_ARRAY[${key}]}\""
+            fi
+          done
+          BADGE_JSON="$BADGE_JSON}"
+          
+          echo $BADGE_JSON > "$BAB_INPUTS_FILENAME.md"
+        done
+
+        git pull
+        if [[ -n $(git status --porcelain) ]]; then
+          git config user.name "${{ steps.wiki_commit.outputs.username }}"
+          git config user.email "${{ steps.wiki_commit.outputs.email }}"
+          git add -A
+          git commit -m "${{ steps.wiki_commit.outputs.message }}"
+          git push
+        fi
+
+        cd ..
+      shell: bash
