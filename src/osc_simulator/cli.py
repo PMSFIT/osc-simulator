@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     print("Output channels:")
     for ch_id, path in channel_paths.items():
-        print(f"  channel {ch_id} → {path}")
+        print(f"  channel {ch_id} -> {path}")
 
     with SensorViewTraceWriter(channel_paths, args.reported_osi_version) as writer:
         engine = SimulationEngine(scenario, step_size=args.step_size)
