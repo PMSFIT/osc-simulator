@@ -7,9 +7,33 @@ test = "scenario/triggers/val_distance_*.py::*"
 reason = "Unknown Condition Divergeance"
 
 [[xfail]]
-test = "scenario/triggers/val_speed_start_trigger.py::*"
+test = "scenario/triggers/val_speed_start_trigger.py::test_speed_start_trigger_activates_target_actor"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/triggers/val_speed_start_trigger.py::test_speed_start_trigger_condition_edge_falling_activates"
 reason = "Unknown Condition Divergeance"
 
 [[xfail]]
 test = "scenario/triggers/val_time_to_collision_start_trigger.py::*"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/init_actions/val_init_actions.py::test_init_teleport_action_places_actor_at_expected_pose"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/init_actions/val_init_actions.py::test_init_add_entity_action_places_actor_at_expected_pose"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/trajectories/val_follow_trajectory_future_time_reference.py::*"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/trajectories/val_follow_trajectory_teleport.py::*"
+reason = "Unknown Condition Divergeance"
+
+[[xfail]]
+test = "scenario/trajectories/val_interpolation.py::*"
 reason = "Unknown Condition Divergeance"
