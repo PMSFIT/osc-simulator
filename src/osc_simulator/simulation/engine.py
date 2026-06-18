@@ -45,6 +45,7 @@ class _EventState:
         self.started = False
         self.completed = False
         self.trigger_time: float | None = None
+        self.trigger_delay: float = 0.0
         self.action_states: list[_ActionExecutionState] = []
 
 
@@ -109,12 +110,13 @@ class SimulationEngine:
     # Condition evaluation
 
     def _stop_triggered(self) -> bool:
-        return self._conditions_met(self._scenario.stop_conditions)
+        return self._conditions_met(self._scenario.stop_conditions)[0]
 
-    def _conditions_met(self, conditions: list[Condition]) -> bool:
-        if not conditions:
-            return False
-        return any(self._condition_true(c) for c in conditions)
+    def _conditions_met(self, conditions: list[Condition]) -> tuple[bool, float]:
+        for c in conditions:
+            if self._condition_true(c):
+                return (True, c.delay)
+        return (False, 0.0)
 
     def _condition_true(self, cond: Condition) -> bool:
         p = cond.params
@@ -269,7 +271,7 @@ class SimulationEngine:
 
     def _evaluate_act(self, story: Story, act: Act) -> None:
         act_key = self._act_key(story, act)
-        if act.has_start_trigger and not self._conditions_met(act.start_conditions):
+        if act.has_start_trigger and not self._conditions_met(act.start_conditions)[0]:
             return
         self._started_elements.add(act_key)
         for mg in act.maneuver_groups:
@@ -296,14 +298,22 @@ class SimulationEngine:
             state = self._event_states.setdefault(event_key, _EventState())
             if state.started and event.priority != "parallel":
                 continue
-            if not event.has_start_trigger or self._conditions_met(event.start_conditions):
-                # Enforce condition delay: record when conditions first became true
-                delay = max((c.delay for c in event.start_conditions), default=0.0)
-                if delay > 0.0:
-                    if state.trigger_time is None:
-                        state.trigger_time = self._time
-                    if self._time - state.trigger_time < delay:
-                        continue
+            if state.trigger_time is not None and (self._time - state.trigger_time) < state.trigger_delay:
+                continue
+            trigger_now = False
+            if state.trigger_time is not None:
+                trigger_now = True
+                state.trigger_time = None
+                state.trigger_delay = 0.0
+
+            (conditions_met, delay) = (True, 0.0) if trigger_now or not event.has_start_trigger else self._conditions_met(event.start_conditions)
+            if conditions_met and (delay > 0.0):
+                if state.trigger_time is None:
+                    state.trigger_time = self._time
+                    state.trigger_delay = delay
+                if self._time - state.trigger_time < state.trigger_delay:
+                    continue
+            if conditions_met:
                 state.started = True
                 self._started_elements.add(event_key)
                 for action in event.actions:
@@ -315,9 +325,6 @@ class SimulationEngine:
                 if not state.action_states or all(a.completed for a in state.action_states):
                     state.completed = True
                     self._completed_elements.add(event_key)
-            else:
-                # Reset trigger time if conditions no longer hold (rising-edge semantics)
-                state.trigger_time = None
 
     def _update_event_action_completion_states(self) -> None:
         for state in self._event_states.values():
