@@ -63,6 +63,8 @@ class EntityRuntimeState:
     y: float = 0.0
     z: float = 0.0
     heading: float = 0.0  # radians, 0 = East (+x), positive counter-clockwise
+    pitch: float = 0.0  # radians
+    roll: float = 0.0  # radians
     speed: float = 0.0  # m/s longitudinal
     acceleration: float = 0.0  # m/s² longitudinal
     lateral_offset: float = 0.0  # metres from initial lane centre
@@ -87,6 +89,8 @@ class EntityRuntimeState:
             y=p.y,
             z=p.z,
             heading=p.h,
+            pitch=p.p,
+            roll=p.r,
             speed=s.speed,
         )
 
@@ -116,6 +120,8 @@ class EntityRuntimeState:
         self.y = pos.y
         self.z = pos.z
         self.heading = pos.h
+        self.pitch = pos.p
+        self.roll = pos.r
 
     def apply_trajectory(self, vertices: list[TrajectoryVertex]) -> None:
         """Activate a polyline trajectory (absolute time references)."""

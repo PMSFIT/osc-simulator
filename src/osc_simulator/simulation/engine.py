@@ -610,8 +610,8 @@ class SimulationEngine:
 
         # Orientation (yaw = heading)
         mv.base.orientation.yaw = state.heading
-        mv.base.orientation.pitch = 0.0
-        mv.base.orientation.roll = 0.0
+        mv.base.orientation.pitch = state.pitch
+        mv.base.orientation.roll = state.roll
 
         # Velocity
         mv.base.velocity.x = state.speed * math.cos(state.heading)
