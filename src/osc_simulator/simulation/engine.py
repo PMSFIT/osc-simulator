@@ -91,6 +91,7 @@ class SimulationEngine:
         self._started_elements: set[str] = set()
         self._completed_elements: set[str] = set()
         self._storyboard_lookup = self._build_storyboard_lookup()
+        self._condition_prev_values: dict[int, bool] = {}
 
     # ------------------------------------------------------------------
     # Public
@@ -119,37 +120,113 @@ class SimulationEngine:
         return (False, 0.0)
 
     def _condition_true(self, cond: Condition) -> bool:
+        raw = self._condition_true_raw(cond)
+        edge = cond.params.get("edge", "none")
+        key = id(cond)
+        prev = self._condition_prev_values.get(key, False)
+        self._condition_prev_values[key] = raw
+
+        if edge == "rising":
+            return raw and not prev
+        if edge == "falling":
+            return (not raw) and prev
+        if edge == "both":
+            return raw != prev
+        return raw
+
+    def _condition_true_raw(self, cond: Condition) -> bool:
         p = cond.params
         kind = p.get("type")
         if kind == "simulation_time":
             return _compare(self._time, p["rule"], p["value"])
         if kind == "distance":
             entity_ref = p.get("entity_ref", "")
+            target_position = p.get("target_position")
             triggering = p.get("triggering_entities", list(self._entities.keys()))
             coord_sys = p.get("coordinate_system", "entity")
             rel_dist_type = p.get("relative_distance_type", "euclidianDistance")
             for ename in triggering:
                 e1 = self._entities.get(ename)
-                e2 = self._entities.get(entity_ref)
-                if e1 and e2:
-                    if coord_sys == "entity" and rel_dist_type == "longitudinal":
-                        # Project separation onto e1's heading direction
-                        dx = e2.x - e1.x
-                        dy = e2.y - e1.y
-                        d = abs(dx * math.cos(e1.heading) + dy * math.sin(e1.heading))
-                    else:
-                        d = math.hypot(e1.x - e2.x, e1.y - e2.y)
-                    if _compare(d, p["rule"], p["value"]):
-                        return True
+                if e1 is None:
+                    continue
+
+                tx: float | None = None
+                ty: float | None = None
+                if entity_ref:
+                    e2 = self._entities.get(entity_ref)
+                    if e2 is not None:
+                        tx, ty = e2.x, e2.y
+                elif isinstance(target_position, tuple) and len(target_position) >= 2:
+                    tx, ty = float(target_position[0]), float(target_position[1])
+
+                if tx is None or ty is None:
+                    continue
+
+                dx = tx - e1.x
+                dy = ty - e1.y
+
+                if coord_sys == "entity" and rel_dist_type in {"longitudinal", "longitudinalDistance"}:
+                    d = abs(dx * math.cos(e1.heading) + dy * math.sin(e1.heading))
+                elif coord_sys == "entity" and rel_dist_type in {"lateral", "lateralDistance"}:
+                    d = abs(-dx * math.sin(e1.heading) + dy * math.cos(e1.heading))
+                else:
+                    d = math.hypot(dx, dy)
+
+                if _compare(d, p["rule"], p["value"]):
+                    return True
         if kind == "ttc":
-            # Simplified TTC: longitudinal closing speed
-            triggering = p.get("triggering_entities", [])
+            entity_ref = p.get("entity_ref", "")
+            target_position = p.get("target_position")
+            coord_sys = p.get("coordinate_system", "entity")
+            rel_dist_type = p.get("relative_distance_type", "euclidianDistance")
+            triggering = p.get("triggering_entities", list(self._entities.keys()))
             for ename in triggering:
                 e1 = self._entities.get(ename)
-                if e1 and e1.speed > 0:
-                    ttc = p["value"]  # placeholder
-                    if _compare(ttc, p["rule"], p["value"]):
-                        return True
+                if e1 is None:
+                    continue
+
+                tx: float | None = None
+                ty: float | None = None
+                tvx = 0.0
+                tvy = 0.0
+                if entity_ref:
+                    e2 = self._entities.get(entity_ref)
+                    if e2 is not None:
+                        tx, ty = e2.x, e2.y
+                        tvx = e2.speed * math.cos(e2.heading)
+                        tvy = e2.speed * math.sin(e2.heading)
+                elif isinstance(target_position, tuple) and len(target_position) >= 2:
+                    tx, ty = float(target_position[0]), float(target_position[1])
+
+                if tx is None or ty is None:
+                    continue
+
+                rx = tx - e1.x
+                ry = ty - e1.y
+                v1x = e1.speed * math.cos(e1.heading)
+                v1y = e1.speed * math.sin(e1.heading)
+                rvx = v1x - tvx
+                rvy = v1y - tvy
+
+                ttc = math.inf
+                if coord_sys == "entity" and rel_dist_type in {"longitudinal", "longitudinalDistance"}:
+                    hx = math.cos(e1.heading)
+                    hy = math.sin(e1.heading)
+                    longitudinal_sep = rx * hx + ry * hy
+                    closing_speed = rvx * hx + rvy * hy
+                    if longitudinal_sep > 0.0 and closing_speed > 1e-9:
+                        ttc = longitudinal_sep / closing_speed
+                else:
+                    dist = math.hypot(rx, ry)
+                    if dist <= 1e-9:
+                        ttc = 0.0
+                    else:
+                        closing_speed = (rvx * rx + rvy * ry) / dist
+                        if closing_speed > 1e-9:
+                            ttc = dist / closing_speed
+
+                if _compare(ttc, p["rule"], p["value"]):
+                    return True
         if kind == "speed":
             triggering = p.get("triggering_entities", list(self._entities.keys()))
             for ename in triggering:

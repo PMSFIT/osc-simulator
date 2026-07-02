@@ -507,6 +507,15 @@ class ScenarioParser:
                     rel_dist_type = _str(dist_el, "relativeDistanceType", "euclidianDistance")
                     params["coordinate_system"] = coord_sys
                     params["relative_distance_type"] = rel_dist_type
+                    pos_el = dist_el.find(q("Position"))
+                    if pos_el is not None:
+                        wp_el = pos_el.find(q("WorldPosition"))
+                        if wp_el is not None:
+                            params["target_position"] = (
+                                _float(wp_el, "x"),
+                                _float(wp_el, "y"),
+                                _float(wp_el, "z"),
+                            )
                     return Condition(name=name, delay=delay, params=params)
 
                 ttc_el = ec_el.find(q("TimeToCollisionCondition"))
@@ -514,6 +523,25 @@ class ScenarioParser:
                     params["type"] = "ttc"
                     params["value"] = _float(ttc_el, "value")
                     params["rule"] = _str(ttc_el, "rule", "lessThan")
+                    params["coordinate_system"] = _str(ttc_el, "coordinateSystem", "entity")
+                    params["relative_distance_type"] = _str(
+                        ttc_el, "relativeDistanceType", "euclidianDistance"
+                    )
+
+                    target_el = ttc_el.find(q("TimeToCollisionConditionTarget"))
+                    if target_el is not None:
+                        target_ref = target_el.get("entityRef")
+                        if target_ref is not None:
+                            params["entity_ref"] = target_ref
+                        pos_el = target_el.find(q("Position"))
+                        if pos_el is not None:
+                            wp_el = pos_el.find(q("WorldPosition"))
+                            if wp_el is not None:
+                                params["target_position"] = (
+                                    _float(wp_el, "x"),
+                                    _float(wp_el, "y"),
+                                    _float(wp_el, "z"),
+                                )
                     return Condition(name=name, delay=delay, params=params)
 
                 speed_el = ec_el.find(q("SpeedCondition"))

@@ -112,3 +112,91 @@ def test_parse_storyboard_element_state_condition(tmp_path: Path) -> None:
         assert cond.params["storyboard_element_ref"] == "E1"
         assert cond.params["storyboard_element_type"] == "event"
         assert cond.params["state"] == "completeState"
+
+
+def test_parse_distance_condition_with_position_target(tmp_path: Path) -> None:
+        xosc = textwrap.dedent(
+                """<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+    <FileHeader revMajor="1" revMinor="1" date="2024-01-01T00:00:00" description="Distance condition" author="test"/>
+    <RoadNetwork><LogicFile filepath=""/><SceneGraphFile filepath=""/></RoadNetwork>
+    <Entities>
+        <ScenarioObject name="Ego"><Vehicle name="Car" vehicleCategory="car"/></ScenarioObject>
+    </Entities>
+    <Storyboard>
+        <Init><Actions/></Init>
+        <Story name="S">
+            <Act name="A">
+                <ManeuverGroup name="G"><Actors><EntityRef entityRef="Ego"/></Actors>
+                    <Maneuver name="M">
+                        <Event name="E" priority="overwrite">
+                            <Action name="A1">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="5.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger><ConditionGroup><Condition name="D" delay="0" conditionEdge="rising"><ByEntityCondition><TriggeringEntities triggeringEntitiesRule="any"><EntityRef entityRef="Ego"/></TriggeringEntities><EntityCondition><DistanceCondition value="10.0" rule="lessOrEqual" coordinateSystem="entity" relativeDistanceType="longitudinal"><Position><WorldPosition x="1.0" y="2.0" z="3.0" h="0.0" p="0.0" r="0.0"/></Position></DistanceCondition></EntityCondition></ByEntityCondition></Condition></ConditionGroup></StartTrigger>
+                        </Event>
+                    </Maneuver>
+                </ManeuverGroup>
+            </Act>
+        </Story>
+    </Storyboard>
+</OpenSCENARIO>
+"""
+        )
+        path = tmp_path / "distance_position_condition.xosc"
+        path.write_text(xosc)
+
+        scenario = ScenarioParser().parse(path)
+        cond = scenario.stories[0].acts[0].maneuver_groups[0].maneuvers[0].events[0].start_conditions[0]
+        assert cond.params["type"] == "distance"
+        assert cond.params["target_position"] == pytest.approx((1.0, 2.0, 3.0))
+
+
+def test_parse_ttc_condition_with_position_target(tmp_path: Path) -> None:
+        xosc = textwrap.dedent(
+                """<?xml version="1.0" encoding="UTF-8"?>
+<OpenSCENARIO>
+    <FileHeader revMajor="1" revMinor="1" date="2024-01-01T00:00:00" description="TTC condition" author="test"/>
+    <RoadNetwork><LogicFile filepath=""/><SceneGraphFile filepath=""/></RoadNetwork>
+    <Entities>
+        <ScenarioObject name="Ego"><Vehicle name="Car" vehicleCategory="car"/></ScenarioObject>
+    </Entities>
+    <Storyboard>
+        <Init><Actions/></Init>
+        <Story name="S">
+            <Act name="A">
+                <ManeuverGroup name="G"><Actors><EntityRef entityRef="Ego"/></Actors>
+                    <Maneuver name="M">
+                        <Event name="E" priority="overwrite">
+                            <Action name="A1">
+                                <PrivateAction>
+                                    <LongitudinalAction>
+                                        <SpeedAction>
+                                            <SpeedActionTarget><AbsoluteTargetSpeed value="5.0"/></SpeedActionTarget>
+                                        </SpeedAction>
+                                    </LongitudinalAction>
+                                </PrivateAction>
+                            </Action>
+                            <StartTrigger><ConditionGroup><Condition name="TTC" delay="0" conditionEdge="rising"><ByEntityCondition><TriggeringEntities triggeringEntitiesRule="any"><EntityRef entityRef="Ego"/></TriggeringEntities><EntityCondition><TimeToCollisionCondition value="5.0" rule="lessOrEqual" coordinateSystem="entity" relativeDistanceType="euclidianDistance"><TimeToCollisionConditionTarget><Position><WorldPosition x="4.0" y="5.0" z="0.0" h="0.0" p="0.0" r="0.0"/></Position></TimeToCollisionConditionTarget></TimeToCollisionCondition></EntityCondition></ByEntityCondition></Condition></ConditionGroup></StartTrigger>
+                        </Event>
+                    </Maneuver>
+                </ManeuverGroup>
+            </Act>
+        </Story>
+    </Storyboard>
+</OpenSCENARIO>
+"""
+        )
+        path = tmp_path / "ttc_position_condition.xosc"
+        path.write_text(xosc)
+
+        scenario = ScenarioParser().parse(path)
+        cond = scenario.stories[0].acts[0].maneuver_groups[0].maneuvers[0].events[0].start_conditions[0]
+        assert cond.params["type"] == "ttc"
+        assert cond.params["target_position"] == pytest.approx((4.0, 5.0, 0.0))
