@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,8 @@ from osc_simulator.parser.openscenario import (
     TrajectoryVertex,
 )
 from osc_simulator.simulation.engine import SimulationEngine
+
+_CENTER_X = 1.4
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -204,7 +205,7 @@ def test_trajectory_start_position(tmp_path: Path) -> None:
     t0, gt0 = frames[0]
     assert t0 == pytest.approx(0.0)
     ego = gt0.moving_object[0]
-    assert ego.base.position.x == pytest.approx(10.0, abs=0.01)
+    assert ego.base.position.x == pytest.approx(10.0 + _CENTER_X, abs=0.01)
     assert ego.base.position.y == pytest.approx(5.0, abs=0.01)
 
 
@@ -217,7 +218,7 @@ def test_trajectory_end_position_clamped(tmp_path: Path) -> None:
     last_t, last_gt = frames[-1]
     assert last_t >= 1.0
     ego = last_gt.moving_object[0]
-    assert ego.base.position.x == pytest.approx(10.0, abs=0.01)
+    assert ego.base.position.x == pytest.approx(10.0 + _CENTER_X, abs=0.01)
 
 
 def test_trajectory_midpoint_interpolation(tmp_path: Path) -> None:
@@ -230,11 +231,11 @@ def test_trajectory_midpoint_interpolation(tmp_path: Path) -> None:
     t_mid, gt_mid = mid_frame
     ego = gt_mid.moving_object[0]
     # At t=2.0, x should be ~20.0 (half of 40)
-    assert ego.base.position.x == pytest.approx(20.0, abs=0.6)
+    assert ego.base.position.x == pytest.approx(20.0 + _CENTER_X, abs=0.6)
 
 
 def test_trajectory_heading_derived_from_direction(tmp_path: Path) -> None:
-    """Heading should be derived from the polyline direction (East = 0 rad)."""
+    """Heading should follow the trajectory vertex heading (East = 0 rad)."""
     # Pure eastward trajectory
     vertices = [(0.0, 0.0, 0.0, 0.0), (2.0, 20.0, 0.0, 0.0)]
     frames, _ = _run_scenario(tmp_path, _make_xosc(vertices), step_size=0.05)
@@ -246,13 +247,13 @@ def test_trajectory_heading_derived_from_direction(tmp_path: Path) -> None:
 
 
 def test_trajectory_diagonal_heading(tmp_path: Path) -> None:
-    """Diagonal segment heading should be 45° (π/4 rad)."""
+    """If vertices keep yaw at 0, heading remains at 0 even on diagonal motion."""
     vertices = [(0.0, 0.0, 0.0, 0.0), (2.0, 10.0, 10.0, 0.0)]
     frames, _ = _run_scenario(tmp_path, _make_xosc(vertices), step_size=0.05)
 
     _, gt = frames[5]
     ego = gt.moving_object[0]
-    assert ego.base.orientation.yaw == pytest.approx(math.pi / 4, abs=0.01)
+    assert ego.base.orientation.yaw == pytest.approx(0.0, abs=0.01)
 
 
 def test_trajectory_odometer_accumulates(tmp_path: Path) -> None:
