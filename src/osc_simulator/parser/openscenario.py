@@ -82,6 +82,7 @@ class FollowTrajectoryAction:
     """FollowTrajectoryAction with Polyline shape (osc-validation minimal subset)."""
 
     vertices: list[TrajectoryVertex] = field(default_factory=list)
+    time_domain: str = "relative"  # "relative" | "absolute"
 
 
 @dataclass
@@ -429,9 +430,18 @@ class ScenarioParser:
                                     )
                                 )
 
+        time_domain = "relative"
+        time_ref_el = fta_el.find(q("TimeReference"))
+        if time_ref_el is not None:
+            timing_el = time_ref_el.find(q("Timing"))
+            if timing_el is not None:
+                domain = _str(timing_el, "domainAbsoluteRelative", "relative").lower()
+                if domain in {"absolute", "relative"}:
+                    time_domain = domain
+
         # Sort vertices by time to be safe
         vertices.sort(key=lambda v: v.time)
-        return FollowTrajectoryAction(vertices=vertices)
+        return FollowTrajectoryAction(vertices=vertices, time_domain=time_domain)
 
     def _parse_world_position(self, wp_el: etree._Element) -> WorldPosition:
         return WorldPosition(

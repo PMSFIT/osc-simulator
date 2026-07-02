@@ -106,7 +106,11 @@ class SimulationEngine:
                 continue
             for action in actions:
                 if isinstance(action, FollowTrajectoryAction):
-                    entity.apply_trajectory(action.vertices)
+                    entity.apply_trajectory(
+                        action.vertices,
+                        sim_time=self._time,
+                        absolute_time=action.time_domain == "absolute",
+                    )
 
         # Track which events have already fired
         self._event_states: dict[str, _EventState] = {}
@@ -301,7 +305,11 @@ class SimulationEngine:
             elif isinstance(action, TeleportAction):
                 entity.apply_teleport(action.position)
             elif isinstance(action, FollowTrajectoryAction):
-                entity.apply_trajectory(action.vertices)
+                entity.apply_trajectory(
+                    action.vertices,
+                    sim_time=self._time,
+                    absolute_time=action.time_domain == "absolute",
+                )
 
     def _is_action_completed(
         self,

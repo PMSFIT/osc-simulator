@@ -78,6 +78,7 @@ class EntityRuntimeState:
     trajectory: list[TrajectoryVertex] | None = None
     # current simulation clock used for trajectory interpolation
     _trajectory_time: float = field(default=0.0, repr=False)
+    _trajectory_absolute: bool = field(default=False, repr=False)
 
     @classmethod
     def from_definition(cls, defn: EntityDef) -> EntityRuntimeState:
@@ -123,17 +124,18 @@ class EntityRuntimeState:
         self.pitch = pos.p
         self.roll = pos.r
 
-    def apply_trajectory(self, vertices: list[TrajectoryVertex]) -> None:
+    def apply_trajectory(
+        self,
+        vertices: list[TrajectoryVertex],
+        sim_time: float = 0.0,
+        absolute_time: bool = False,
+    ) -> None:
         """Activate a polyline trajectory (absolute time references)."""
         self.trajectory = vertices
-        # Seed position/heading from the first vertex immediately
-        if vertices:
-            first = vertices[0]
-            self.x = first.position.x
-            self.y = first.position.y
-            self.z = first.position.z
-            self.heading = first.position.h
-            self._trajectory_time = first.time
+        self._trajectory_absolute = absolute_time
+        self._trajectory_time = sim_time if absolute_time else 0.0
+        if vertices and self._trajectory_time >= vertices[0].time:
+            self._interpolate_trajectory(self._trajectory_time)
 
     def _interpolate_trajectory(self, t: float) -> None:
         """Update position/heading/speed by linearly interpolating the polyline at time *t*."""
@@ -195,31 +197,36 @@ class EntityRuntimeState:
         if self.trajectory is not None:
             # Advance the trajectory clock and interpolate
             self._trajectory_time += dt
-            self._interpolate_trajectory(self._trajectory_time)
-        else:
-            # Advance dynamics interpolation
-            if self.dynamics is not None:
-                self.dynamics.elapsed += dt
-                self.speed = self.dynamics.current_speed()
-                if self.dynamics.is_complete():
-                    self.speed = self.dynamics.target_speed
-                    self.dynamics = None
+            first_time = self.trajectory[0].time if self.trajectory else math.inf
+            if self._trajectory_time >= first_time:
+                self._interpolate_trajectory(self._trajectory_time)
+                self.odometer += math.hypot(self.x - prev_x, self.y - prev_y, self.z - prev_z)
+                self.acceleration = (self.speed - prev_speed) / dt if dt > 0.0 else 0.0
+                return
 
-            # Advance lateral interpolation
-            if self.lateral is not None:
-                self.lateral.elapsed += dt
-                self.lateral_offset = self.lateral.current_offset()
-                if self.lateral.is_complete():
-                    self.lateral_offset = self.lateral.target_offset
-                    self.lateral = None
+        # Advance dynamics interpolation
+        if self.dynamics is not None:
+            self.dynamics.elapsed += dt
+            self.speed = self.dynamics.current_speed()
+            if self.dynamics.is_complete():
+                self.speed = self.dynamics.target_speed
+                self.dynamics = None
 
-            # Integrate position (simple Euler forward)
-            self.x += self.speed * math.cos(self.heading) * dt
-            self.y += self.speed * math.sin(self.heading) * dt
-            # Apply lateral offset perpendicular to heading
-            lateral_heading = self.heading + math.pi / 2.0
-            self.x += self.lateral_offset * math.cos(lateral_heading) * dt
-            self.y += self.lateral_offset * math.sin(lateral_heading) * dt
+        # Advance lateral interpolation
+        if self.lateral is not None:
+            self.lateral.elapsed += dt
+            self.lateral_offset = self.lateral.current_offset()
+            if self.lateral.is_complete():
+                self.lateral_offset = self.lateral.target_offset
+                self.lateral = None
+
+        # Integrate position (simple Euler forward)
+        self.x += self.speed * math.cos(self.heading) * dt
+        self.y += self.speed * math.sin(self.heading) * dt
+        # Apply lateral offset perpendicular to heading
+        lateral_heading = self.heading + math.pi / 2.0
+        self.x += self.lateral_offset * math.cos(lateral_heading) * dt
+        self.y += self.lateral_offset * math.sin(lateral_heading) * dt
 
         # Accumulate odometer
         self.odometer += math.hypot(self.x - prev_x, self.y - prev_y, self.z - prev_z)
