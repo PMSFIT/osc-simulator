@@ -46,6 +46,7 @@ class EntityDef:
     name: str
     category: str  # "car", "truck", "pedestrian", …
     bounding_box: tuple[float, float, float] = (4.5, 2.0, 1.5)  # l, w, h metres
+    bounding_box_center: tuple[float, float, float] = (0.0, 0.0, 0.0)
     initial_state: EntityState = field(default_factory=EntityState)
 
 
@@ -193,13 +194,18 @@ class ScenarioParser:
             return
         for obj_el in entities_el.findall(q("ScenarioObject")):
             name = _str(obj_el, "name", "unknown")
-            category, bbox = self._resolve_entity_type(obj_el, q)
-            entity = EntityDef(name=name, category=category, bounding_box=bbox)
+            category, bbox, bbox_center = self._resolve_entity_type(obj_el, q)
+            entity = EntityDef(
+                name=name,
+                category=category,
+                bounding_box=bbox,
+                bounding_box_center=bbox_center,
+            )
             scenario.entities.append(entity)
 
     def _resolve_entity_type(
         self, obj_el: etree._Element, q: Any
-    ) -> tuple[str, tuple[float, float, float]]:
+    ) -> tuple[str, tuple[float, float, float], tuple[float, float, float]]:
         for tag, cat in (
             (q("Vehicle"), "car"),
             (q("Pedestrian"), "pedestrian"),
@@ -208,22 +214,32 @@ class ScenarioParser:
             el = obj_el.find(tag)
             if el is not None:
                 raw_cat = _str(el, "vehicleCategory") or _str(el, "pedestrianCategory") or cat
-                bbox = self._parse_bounding_box(el, q)
-                return raw_cat, bbox
-        return "unknown", (4.5, 2.0, 1.5)
+                bbox, bbox_center = self._parse_bounding_box(el, q)
+                return raw_cat, bbox, bbox_center
+        return "unknown", (4.5, 2.0, 1.5), (0.0, 0.0, 0.0)
 
-    def _parse_bounding_box(self, el: etree._Element, q: Any) -> tuple[float, float, float]:
+    def _parse_bounding_box(
+        self, el: etree._Element, q: Any
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
         bb = el.find(q("BoundingBox"))
         if bb is None:
-            return (4.5, 2.0, 1.5)
+            return (4.5, 2.0, 1.5), (0.0, 0.0, 0.0)
         dim = bb.find(q("Dimensions"))
+        center = bb.find(q("Center"))
         if dim is None:
-            return (4.5, 2.0, 1.5)
-        return (
-            _float(dim, "length", 4.5),
-            _float(dim, "width", 2.0),
-            _float(dim, "height", 1.5),
+            dimensions = (4.5, 2.0, 1.5)
+        else:
+            dimensions = (
+                _float(dim, "length", 4.5),
+                _float(dim, "width", 2.0),
+                _float(dim, "height", 1.5),
+            )
+        center_xyz = (
+            _float(center, "x", 0.0) if center is not None else 0.0,
+            _float(center, "y", 0.0) if center is not None else 0.0,
+            _float(center, "z", 0.0) if center is not None else 0.0,
         )
+        return dimensions, center_xyz
 
     # ------------------------------------------------------------------
 

@@ -40,6 +40,31 @@ def _compare(actual: float, rule: str, threshold: float) -> bool:
     }.get(rule, False)
 
 
+
+def _rotate_point_zyx(
+    x: float, y: float, z: float, yaw: float, pitch: float, roll: float
+) -> tuple[float, float, float]:
+    cos_yaw = math.cos(yaw)
+    cos_pitch = math.cos(pitch)
+    cos_roll = math.cos(roll)
+    sin_yaw = math.sin(yaw)
+    sin_pitch = math.sin(pitch)
+    sin_roll = math.sin(roll)
+
+    rx = (
+        (cos_yaw * cos_pitch) * x
+        + (cos_yaw * sin_pitch * sin_roll - sin_yaw * cos_roll) * y
+        + (cos_yaw * sin_pitch * cos_roll + sin_yaw * sin_roll) * z
+    )
+    ry = (
+        (sin_yaw * cos_pitch) * x
+        + (sin_yaw * sin_pitch * sin_roll + cos_yaw * cos_roll) * y
+        + (sin_yaw * sin_pitch * cos_roll - cos_yaw * sin_roll) * z
+    )
+    rz = (-sin_pitch) * x + (cos_pitch * sin_roll) * y + (cos_pitch * cos_roll) * z
+    return rx, ry, rz
+
+
 class _EventState:
     def __init__(self) -> None:
         self.started = False
@@ -570,9 +595,18 @@ class SimulationEngine:
             mv.type = 3  # TYPE_PEDESTRIAN
 
         # Base
-        mv.base.position.x = state.x
-        mv.base.position.y = state.y
-        mv.base.position.z = state.z
+        center_x, center_y, center_z = defn.bounding_box_center
+        cdx, cdy, cdz = _rotate_point_zyx(
+            center_x,
+            center_y,
+            center_z,
+            state.heading,
+            state.pitch,
+            state.roll,
+        )
+        mv.base.position.x = state.x + cdx
+        mv.base.position.y = state.y + cdy
+        mv.base.position.z = state.z + cdz
 
         # Orientation (yaw = heading)
         mv.base.orientation.yaw = state.heading
