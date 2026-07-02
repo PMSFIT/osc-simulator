@@ -1,12 +1,4 @@
 [[xfail]]
-test = "scenario/triggers/val_condition_delay.py::test_speed_start_trigger_respects_condition_delay"
-reason = "Condition Delay Divergeance"
-
-[[xfail]]
-test = "scenario/triggers/val_speed_start_trigger.py::test_speed_start_trigger_activates_target_actor"
-reason = "Unknown Condition Divergeance"
-
-[[xfail]]
 test = "scenario/triggers/val_speed_start_trigger.py::test_speed_start_trigger_condition_edge_falling_activates"
 reason = "Unknown Condition Divergeance"
 

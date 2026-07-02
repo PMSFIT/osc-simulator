@@ -156,9 +156,10 @@ class EntityRuntimeState:
             return
 
         # Find the bracketing vertices
+        eps = 1e-9
         for i in range(len(verts) - 1):
             t0, t1 = verts[i].time, verts[i + 1].time
-            if t0 <= t <= t1:
+            if (t0 - eps) <= t <= (t1 + eps):
                 dt_seg = t1 - t0
                 alpha = (t - t0) / dt_seg if dt_seg > 0.0 else 0.0
                 p0, p1 = verts[i].position, verts[i + 1].position
