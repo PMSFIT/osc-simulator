@@ -176,16 +176,12 @@ class EntityRuntimeState:
                 self.y = p0.y + alpha * (p1.y - p0.y)
                 self.z = p0.z + alpha * (p1.z - p0.z)
 
-                # Heading: derive from segment direction, fall back to stored h
-                dx = p1.x - p0.x
-                dy = p1.y - p0.y
-                seg_len = math.hypot(dx, dy)
-                if seg_len > 1e-9:
-                    self.heading = math.atan2(dy, dx)
-                else:
-                    self.heading = p0.h + alpha * (p1.h - p0.h)
+                # Orientation follows the trajectory vertex headings.
+                self.heading = p0.h + alpha * (p1.h - p0.h)
 
                 # Speed: Euclidean distance over time
+                dx = p1.x - p0.x
+                dy = p1.y - p0.y
                 seg_dist = math.sqrt(dx * dx + dy * dy + (p1.z - p0.z) ** 2)
                 self.speed = seg_dist / dt_seg if dt_seg > 0.0 else 0.0
                 return
