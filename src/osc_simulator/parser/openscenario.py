@@ -285,6 +285,30 @@ class ScenarioParser:
             if extra:
                 scenario.init_actions.setdefault(entity_name, []).extend(extra)
 
+        # Global Init actions (e.g. AddEntityAction)
+        global_actions = list(actions_el.findall(q("GlobalAction")))
+        for global_el in actions_el.findall(q("Global")):
+            global_actions.extend(global_el.findall(q("GlobalAction")))
+
+        for ga_el in global_actions:
+            entity_action_el = ga_el.find(q("EntityAction"))
+            if entity_action_el is None:
+                continue
+            entity_name = _str(entity_action_el, "entityRef")
+            if not entity_name:
+                continue
+            entity = next((e for e in scenario.entities if e.name == entity_name), None)
+            if entity is None:
+                continue
+
+            add_entity_el = entity_action_el.find(q("AddEntityAction"))
+            if add_entity_el is not None:
+                pos_el = add_entity_el.find(q("Position"))
+                if pos_el is not None:
+                    wp_el = pos_el.find(q("WorldPosition"))
+                    if wp_el is not None:
+                        entity.initial_state.position = self._parse_world_position(wp_el)
+
     def _parse_story(self, story_el: etree._Element, q: Any) -> Story:
         story = Story(name=_str(story_el, "name"))
         for act_el in story_el.findall(q("Act")):
