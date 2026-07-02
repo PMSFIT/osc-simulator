@@ -12,16 +12,16 @@ authors = [
   {email = "osi@pmsf.de"},
   {name = "PMSF"}
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<4.0"
 dependencies = [
     "osi-python @ git+https://github.com/OpenSimulationInterface/osi-python.git",
     "asam-osi-utilities>=0.4.0,<0.5.0",
-    "lxml>=4.9",
+    "lxml>=5.2.2,<6.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
+    "pytest>=8.2.2,<9.0.0",
     "pytest-cov>=4.0",
     "ruff>=0.4",
     "mypy>=1.0",
@@ -29,7 +29,8 @@ dev = [
 ]
 validation = [
     "osc-validation @ git+https://github.com/PMSFIT/osc-validation.git",
-    "pytest-html>=4.2",
+    "numpy<2.0",
+    "pytest-html>=4.2.0,<5.0.0",
 ]
 
 [project.scripts]
@@ -70,6 +71,7 @@ strict = true
 ignore_missing_imports = true
 
 [tool.hatch.envs.validation]
+python = "3.12"
 features = [
   "validation",
 ]
