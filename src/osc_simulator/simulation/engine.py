@@ -86,6 +86,18 @@ class _ActionExecutionState:
         self.completed = False
 
 
+class _PendingAction:
+    def __init__(
+        self,
+        event_state: _EventState,
+        event_key: str,
+        action_state: _ActionExecutionState,
+    ) -> None:
+        self.event_state = event_state
+        self.event_key = event_key
+        self.action_state = action_state
+
+
 class SimulationEngine:
     """Execute a :class:`~osc_simulator.parser.openscenario.Scenario`."""
 
@@ -121,6 +133,7 @@ class SimulationEngine:
         self._completed_elements: set[str] = set()
         self._storyboard_lookup = self._build_storyboard_lookup()
         self._condition_prev_values: dict[int, bool] = {}
+        self._pending_actions: list[_PendingAction] = []
 
     # ------------------------------------------------------------------
     # Public
@@ -132,6 +145,7 @@ class SimulationEngine:
             gt = self._build_ground_truth()
             yield self._time, gt
             self._advance()
+            self._apply_pending_actions()
 
         # Emit final frame at stop time
         yield self._time, self._build_ground_truth()
@@ -429,9 +443,7 @@ class SimulationEngine:
                 for action in event.actions:
                     action_state = _ActionExecutionState(action, list(actors))
                     state.action_states.append(action_state)
-                    action_state.started = True
-                    self._apply_action(action, actors)
-                    action_state.completed = self._is_action_completed(action, actors)
+                    self._pending_actions.append(_PendingAction(state, event_key, action_state))
                 if not state.action_states or all(a.completed for a in state.action_states):
                     state.completed = True
                     self._completed_elements.add(event_key)
@@ -441,6 +453,8 @@ class SimulationEngine:
             if not state.started or state.completed:
                 continue
             for action_state in state.action_states:
+                if not action_state.started:
+                    continue
                 if action_state.completed:
                     continue
                 action_state.completed = self._is_action_completed(
@@ -448,6 +462,20 @@ class SimulationEngine:
                 )
             if all(a.completed for a in state.action_states):
                 state.completed = True
+
+    def _apply_pending_actions(self) -> None:
+        pending_actions = self._pending_actions
+        self._pending_actions = []
+        for pending in pending_actions:
+            action_state = pending.action_state
+            action_state.started = True
+            self._apply_action(action_state.action, action_state.actor_names)
+            action_state.completed = self._is_action_completed(
+                action_state.action, action_state.actor_names
+            )
+            if all(a.completed for a in pending.event_state.action_states):
+                pending.event_state.completed = True
+                self._completed_elements.add(pending.event_key)
 
     def _story_key(self, story: Story) -> str:
         return f"story:{story.name}"
